@@ -48,7 +48,15 @@ function normalizeStr(s: string) {
 // Flow: Firestore cache → Indian DB → USDA → Open Food Facts → fallback
 
 export const searchFood = onCall(
-  { cors: true, secrets: ['USDA_API_KEY'] },
+  {
+    cors: [
+      'https://fitvoryaai.web.app',
+      'https://fitvoryaai.firebaseapp.com',
+      'http://localhost:5173',
+      'http://localhost:4173',
+    ],
+    secrets: ['USDA_API_KEY'],
+  },
   async (req) => {
     const query: string = (req.data?.query ?? '').trim()
     if (!query || query.length < 2) {
@@ -139,7 +147,15 @@ export const searchFood = onCall(
 // ── FUNCTION 2: searchExercises ───────────────────────────────────────────────
 
 export const searchExercises = onCall(
-  { cors: true, secrets: ['EXERCISEDB_API_KEY'] },
+  {
+    cors: [
+      'https://fitvoryaai.web.app',
+      'https://fitvoryaai.firebaseapp.com',
+      'http://localhost:5173',
+      'http://localhost:4173',
+    ],
+    secrets: ['EXERCISEDB_API_KEY'],
+  },
   async (req) => {
     const query: string = (req.data?.query ?? '').trim()
     const bodyPart: string = (req.data?.bodyPart ?? '').trim()

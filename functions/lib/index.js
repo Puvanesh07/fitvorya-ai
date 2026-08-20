@@ -51,7 +51,15 @@ function normalizeStr(s) {
 }
 // ── FUNCTION 1: searchFood ────────────────────────────────────────────────────
 // Flow: Firestore cache → Indian DB → USDA → Open Food Facts → fallback
-exports.searchFood = (0, https_1.onCall)({ cors: true, secrets: ['USDA_API_KEY'] }, async (req) => {
+exports.searchFood = (0, https_1.onCall)({
+    cors: [
+        'https://fitvoryaai.web.app',
+        'https://fitvoryaai.firebaseapp.com',
+        'http://localhost:5173',
+        'http://localhost:4173',
+    ],
+    secrets: ['USDA_API_KEY'],
+}, async (req) => {
     const query = (req.data?.query ?? '').trim();
     if (!query || query.length < 2) {
         return { foods: [], source: 'empty' };
@@ -137,7 +145,15 @@ exports.searchFood = (0, https_1.onCall)({ cors: true, secrets: ['USDA_API_KEY']
     return { foods: results.slice(0, 20), source: 'api' };
 });
 // ── FUNCTION 2: searchExercises ───────────────────────────────────────────────
-exports.searchExercises = (0, https_1.onCall)({ cors: true, secrets: ['EXERCISEDB_API_KEY'] }, async (req) => {
+exports.searchExercises = (0, https_1.onCall)({
+    cors: [
+        'https://fitvoryaai.web.app',
+        'https://fitvoryaai.firebaseapp.com',
+        'http://localhost:5173',
+        'http://localhost:4173',
+    ],
+    secrets: ['EXERCISEDB_API_KEY'],
+}, async (req) => {
     const query = (req.data?.query ?? '').trim();
     const bodyPart = (req.data?.bodyPart ?? '').trim();
     // 1️⃣ Check Firestore exercise cache

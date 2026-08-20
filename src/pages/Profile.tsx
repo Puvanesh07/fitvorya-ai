@@ -180,8 +180,14 @@ export default function Profile() {
                 <p className="text-sm font-bold text-text-primary capitalize">{profile.goal.replace('_', ' ')}</p>
               </div>
               <div className="card-blue p-4">
-                <p className="text-xs font-semibold text-text-secondary mb-1">Target</p>
-                <p className="text-lg font-bold text-text-primary">{profile.targetWeight ?? '—'} kg</p>
+                <p className="text-xs font-semibold text-text-secondary mb-1">Target Weight</p>
+                <p className="text-lg font-bold text-text-primary">
+                  {profile.targetWeight && profile.targetWeight > 0
+                    ? `${profile.targetWeight} kg`
+                    : profile.goal === 'maintain_weight' || profile.goal === 'general_fitness'
+                    ? `${profile.weight} kg`
+                    : '—'}
+                </p>
               </div>
             </div>
 

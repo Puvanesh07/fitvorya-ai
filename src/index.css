@@ -252,59 +252,11 @@
 .card-orange { background: rgb(var(--card-orange)); border-radius: 1.25rem; }
 .card-lime   { background: rgb(var(--card-lime));   border-radius: 1.25rem; }
 
-/* ── Sidebar ─────────────────────────────────────────────────────────────────── */
-.sidebar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  height: 100vh;
-  width: 72px;
-  background: rgb(var(--surface));
-  border-right: 1px solid rgb(var(--border));
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 1.25rem 0;
-  z-index: 40;
-  transition: width 0.25s ease, box-shadow 0.2s ease;
-  overflow: hidden;
-}
-.sidebar.expanded {
-  width: 220px;
-  align-items: flex-start;
-  box-shadow: 4px 0 24px rgb(0 0 0 / 0.08);
-}
-.sidebar-link {
-  display: flex;
-  align-items: center;
-  gap: 0.85rem;
-  padding: 0.7rem 1.1rem;
-  border-radius: 0.875rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: rgb(var(--text-secondary));
-  transition: all 0.18s ease;
-  width: calc(100% - 1.5rem);
-  margin: 0 0.75rem;
-  white-space: nowrap;
-  cursor: pointer;
-  text-decoration: none;
-}
-.sidebar-link:hover {
-  background: rgb(var(--purple-50));
-  color: rgb(var(--purple-600));
-}
-.sidebar-link.active {
-  background: rgb(var(--purple-600));
-  color: white;
-  box-shadow: 0 4px 12px rgb(var(--purple-600) / 0.35);
-}
-.sidebar-icon {
-  font-size: 1.15rem;
-  flex-shrink: 0;
-  width: 22px;
-  text-align: center;
-}
+/* ── Sidebar (legacy — layout now in AppLayout.tsx/Sidebar.tsx) ─────────────── */
+.sidebar { display: none; } /* handled by Tailwind in component */
+.sidebar-link { display: none; }
+.sidebar-icon { display: none; }
+.sidebar.expanded { display: none; }
 
 /* ── App layout ──────────────────────────────────────────────────────────────── */
 .app-layout {
@@ -322,7 +274,6 @@
   .sidebar { display: none; }
   .app-main { margin-left: 0; }
 }
-
 /* ── Typography ──────────────────────────────────────────────────────────────── */
 .stat-number {
   font-weight: 800;
@@ -514,3 +465,226 @@
 }
 .water-btn:hover { border-color: #60a5fa; background: rgb(219 234 254 / 0.4); color: #2563eb; }
 .water-btn.active { border-color: #3b82f6; background: rgb(219 234 254 / 0.6); color: #1d4ed8; }
+
+/* ── Enhanced card variants ─────────────────────────────────────────────────── */
+/* Cards now have subtle inner border for depth in both light and dark modes */
+.card {
+  border: 1px solid rgb(var(--border) / 0.7);
+}
+.card-green  { border: 1px solid rgb(var(--success) / 0.2); }
+.card-yellow { border: 1px solid rgb(var(--warning) / 0.25); }
+.card-purple { border: 1px solid rgb(var(--purple-400) / 0.2); }
+.card-blue   { border: 1px solid rgb(60 130 240 / 0.2); }
+.card-pink   { border: 1px solid rgb(var(--pink-400) / 0.2); }
+.card-orange { border: 1px solid rgb(250 120 50 / 0.2); }
+.card-lime   { border: 1px solid rgb(100 200 50 / 0.2); }
+
+/* ── Glow effects for primary CTAs ──────────────────────────────────────────── */
+.btn-purple:hover:not(:disabled) {
+  box-shadow: 0 8px 28px rgb(var(--purple-600) / 0.5), 0 0 0 1px rgb(var(--purple-400) / 0.3);
+}
+
+/* ── Stat card number typography ─────────────────────────────────────────────── */
+.stat-value {
+  font-size: clamp(1.5rem, 3vw, 2.25rem);
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  background: linear-gradient(135deg, rgb(var(--text-primary)), rgb(var(--text-secondary)));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Text gradient utilities ─────────────────────────────────────────────────── */
+.gradient-text-green {
+  background: linear-gradient(135deg, #10b981, #059669);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.gradient-text-orange {
+  background: linear-gradient(135deg, #f97316, #ea580c);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.gradient-text-blue {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Section divider ──────────────────────────────────────────────────────────── */
+.section-divider {
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgb(var(--border)), transparent);
+  margin: 1.5rem 0;
+}
+
+/* ── Skeleton loading ────────────────────────────────────────────────────────── */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+.skeleton {
+  background: rgb(var(--surface2));
+  border-radius: 0.5rem;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+/* ── Tooltip ─────────────────────────────────────────────────────────────────── */
+.tooltip {
+  position: relative;
+}
+.tooltip::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgb(var(--text-primary));
+  color: rgb(var(--surface));
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s;
+  z-index: 100;
+}
+.tooltip:hover::after { opacity: 1; }
+
+/* ── Tag chip ────────────────────────────────────────────────────────────────── */
+.chip {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: 99px;
+  font-size: 0.7rem; font-weight: 600;
+  background: rgb(var(--surface2));
+  border: 1px solid rgb(var(--border));
+  color: rgb(var(--text-secondary));
+  transition: all 0.15s;
+}
+.chip:hover {
+  border-color: rgb(var(--purple-400));
+  color: rgb(var(--purple-600));
+  background: rgb(var(--purple-50));
+}
+
+/* ── Animated underline link ─────────────────────────────────────────────────── */
+.link-underline {
+  position: relative;
+  text-decoration: none;
+  color: rgb(var(--purple-600));
+  font-weight: 600;
+}
+.link-underline::after {
+  content: '';
+  position: absolute;
+  bottom: -1px; left: 0;
+  width: 0; height: 2px;
+  background: linear-gradient(90deg, rgb(var(--purple-600)), rgb(var(--pink-400)));
+  transition: width 0.25s ease;
+  border-radius: 99px;
+}
+.link-underline:hover::after { width: 100%; }
+
+/* ── Input focus ring enhancement ────────────────────────────────────────────── */
+.input:focus {
+  border-color: rgb(var(--purple-500));
+  box-shadow: 0 0 0 3px rgb(var(--purple-500) / 0.15), 0 1px 4px rgb(0 0 0 / 0.08);
+  background: rgb(var(--surface));
+}
+
+/* ── Active sidebar link glow ─────────────────────────────────────────────────── */
+.sidebar-link.active {
+  background: linear-gradient(135deg, rgb(var(--purple-600)), rgb(var(--purple-400)));
+  box-shadow: 0 4px 16px rgb(var(--purple-600) / 0.4), inset 0 1px 0 rgb(255 255 255 / 0.15);
+}
+
+/* ── Mobile nav active indicator ──────────────────────────────────────────────── */
+.mobile-nav-btn.active .mnb-icon {
+  filter: drop-shadow(0 0 6px rgb(var(--purple-500) / 0.6));
+}
+
+/* ── Notification dot ────────────────────────────────────────────────────────── */
+.notif-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: rgb(var(--pink-500));
+  box-shadow: 0 0 0 2px rgb(var(--surface));
+}
+@keyframes ping {
+  75%, 100% { transform: scale(1.8); opacity: 0; }
+}
+.notif-dot-ping {
+  animation: ping 1.2s cubic-bezier(0,0,.2,1) infinite;
+}
+
+/* ── Section heading accent line ─────────────────────────────────────────────── */
+.section-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+  font-weight: 800;
+  color: rgb(var(--text-primary));
+  letter-spacing: -0.02em;
+}
+.section-heading::before {
+  content: '';
+  display: block;
+  width: 4px;
+  height: 1.1em;
+  border-radius: 99px;
+  background: linear-gradient(180deg, rgb(var(--purple-600)), rgb(var(--pink-400)));
+  flex-shrink: 0;
+}
+
+/* ── Floating label input ────────────────────────────────────────────────────── */
+.input-group {
+  position: relative;
+}
+
+/* ── Card grid gap utility ───────────────────────────────────────────────────── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+/* ── Scrollbar hide ──────────────────────────────────────────────────────────── */
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+
+/* ── Pulse ring ──────────────────────────────────────────────────────────────── */
+@keyframes pulse-ring {
+  0%   { box-shadow: 0 0 0 0 rgb(var(--purple-500) / 0.5); }
+  100% { box-shadow: 0 0 0 14px rgb(var(--purple-500) / 0); }
+}
+.pulse-ring {
+  animation: pulse-ring 1.5s ease-out infinite;
+}
+
+/* ── Text balance ────────────────────────────────────────────────────────────── */
+h1, h2, h3 { text-wrap: balance; }
+
+/* ── Dark mode card subtle gradient ──────────────────────────────────────────── */
+.dark .card {
+  background: linear-gradient(145deg, rgb(var(--surface)), rgb(var(--surface2)));
+}
+.dark .card-purple { background: linear-gradient(135deg, rgb(35 25 65), rgb(28 20 52)); }
+.dark .card-green  { background: linear-gradient(135deg, rgb(15 40 25), rgb(12 32 20)); }
+.dark .card-yellow { background: linear-gradient(135deg, rgb(40 35 10), rgb(32 28 8));  }
+.dark .card-blue   { background: linear-gradient(135deg, rgb(15 25 50), rgb(12 20 42)); }
+.dark .card-pink   { background: linear-gradient(135deg, rgb(45 15 30), rgb(38 12 25)); }
+.dark .card-lime   { background: linear-gradient(135deg, rgb(20 40 12), rgb(15 32 8));  }
+.dark .card-orange { background: linear-gradient(135deg, rgb(45 25 10), rgb(38 20 8));  }
