@@ -4,48 +4,82 @@ import {
   deleteMealEntry, addWaterEntry, getWaterEntriesForDate, deleteWaterEntry,
 } from '../firebase/firestoreNutrition'
 
-// ── Netlify function URL ──────────────────────────────────────────────────────
-// In dev (Vite), VITE_NETLIFY_BASE is set to http://localhost:8888 via .env.local
-// In production on Netlify, it's empty so the path is relative (same origin).
-const NETLIFY_BASE = import.meta.env.VITE_NETLIFY_BASE ?? ''
+// ── Food search ───────────────────────────────────────────────────────────────
+// Strategy:
+//   1. Always search local FALLBACK_FOODS instantly (zero latency).
+//   2. In production (Netlify), proxy through /.netlify/functions/searchFood
+//      so the USDA key stays server-side.
+//   3. In local Vite dev, call USDA FoodData Central directly using
+//      VITE_USDA_API_KEY from .env — no Netlify dev server needed.
+//   4. If the API call fails for any reason, gracefully fall back to locals.
 
-// ── Food search via Netlify Function ─────────────────────────────────────────
-// USDA API key lives in Netlify environment variables — never in client JS.
-// Falls back to local FALLBACK_FOODS on network error or when key not set.
+const IS_DEV = import.meta.env.DEV
+const USDA_API_KEY = import.meta.env.VITE_USDA_API_KEY ?? ''
+const USDA_BASE = 'https://api.nal.usda.gov/fdc/v1'
 
 export async function searchFood(query: string): Promise<FoodItem[]> {
   const trimmed = query.trim()
   if (trimmed.length < 2) return FALLBACK_FOODS.slice(0, 10)
 
-  // Always search local first — instant, zero network cost
+  // Always search local first — instant
   const localMatches = FALLBACK_FOODS.filter(f =>
     f.name.toLowerCase().includes(trimmed.toLowerCase()),
   )
 
   try {
-    const res = await fetch(`${NETLIFY_BASE}/.netlify/functions/searchFood`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ query: trimmed }),
-    })
+    let apiItems: FoodItem[] = []
 
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    if (IS_DEV && USDA_API_KEY) {
+      // ── Dev: call USDA directly ──────────────────────────────────────────
+      const res = await fetch(
+        `${USDA_BASE}/foods/search?query=${encodeURIComponent(trimmed)}&pageSize=15&api_key=${USDA_API_KEY}`,
+      )
+      if (!res.ok) throw new Error(`USDA HTTP ${res.status}`)
+      const data = await res.json() as {
+        foods: Array<{
+          fdcId: number; description: string; brandOwner?: string
+          foodNutrients: Array<{ nutrientId: number; value: number }>
+          servingSize?: number; servingSizeUnit?: string
+        }>
+      }
 
-    const data = await res.json() as { foods: FoodItem[]; source: string }
-    const apiItems: FoodItem[] = data.foods ?? []
+      apiItems = (data.foods ?? []).map(f => {
+        const get = (id: number) =>
+          f.foodNutrients.find(n => n.nutrientId === id)?.value ?? 0
+        return {
+          fdcId:       String(f.fdcId),
+          name:        f.description,
+          brand:       f.brandOwner,
+          calories:    Math.round(get(1008)),
+          protein:     Math.round(get(1003) * 10) / 10,
+          carbs:       Math.round(get(1005) * 10) / 10,
+          fat:         Math.round(get(1004) * 10) / 10,
+          fiber:       Math.round(get(1079) * 10) / 10,
+          servingSize: f.servingSize ?? undefined,
+          servingUnit: f.servingSizeUnit ?? undefined,
+        } satisfies FoodItem
+      })
+    } else if (!IS_DEV) {
+      // ── Production: use Netlify function (key stays server-side) ─────────
+      const res = await fetch('/.netlify/functions/searchFood', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ query: trimmed }),
+      })
+      if (!res.ok) throw new Error(`Netlify fn HTTP ${res.status}`)
+      const data = await res.json() as { foods: FoodItem[] }
+      apiItems = data.foods ?? []
+    }
 
-    // Merge: local first, then API results (deduped by fdcId)
+    // Merge: locals first, then API results (dedup by fdcId)
     const seen = new Set(localMatches.map(f => f.fdcId))
     const merged = [...localMatches]
     for (const f of apiItems) {
-      if (!seen.has(f.fdcId)) {
-        merged.push(f)
-        seen.add(f.fdcId)
-      }
+      if (!seen.has(f.fdcId)) { merged.push(f); seen.add(f.fdcId) }
     }
     return merged.slice(0, 20)
   } catch {
-    // Netlify not deployed yet, offline, or missing API key — use local DB
+    // Network error / missing key → use local DB only
     return localMatches.length > 0 ? localMatches : FALLBACK_FOODS.slice(0, 10)
   }
 }

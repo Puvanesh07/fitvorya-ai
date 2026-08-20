@@ -12,7 +12,8 @@ const sizes = {
 export default function LoadingSpinner({ size = 'md', className = '' }: Props) {
   return (
     <span
-      className={`inline-block ${sizes[size]} rounded-full border-brand/20 border-t-brand animate-spin ${className}`}
+      className={`inline-block ${sizes[size]} rounded-full animate-spin ${className}`}
+      style={{ borderColor: 'rgba(175,135,255,0.2)', borderTopColor: '#8b5cf6' }}
       role="status"
       aria-label="Loading"
     />

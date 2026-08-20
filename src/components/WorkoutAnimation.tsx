@@ -395,8 +395,8 @@ export default function WorkoutAnimation({
 
   const diffColor = {
     Beginner:     'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300',
-    Intermediate: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300',
-    Advanced:     'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300',
+    Intermediate: 'bg-yellow-100  text-yellow-700 ',
+    Advanced:     'bg-red-100  text-red-700 ',
   }[data.difficulty]
 
   return (

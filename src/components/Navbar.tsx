@@ -2,7 +2,6 @@ import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import { logout } from '../firebase/auth'
 import { useAuth } from '../context/AuthContext'
-import ThemeToggle from './ThemeToggle'
 
 const NAV_LINKS = [
   { to: '/dashboard', label: 'Dashboard', icon: '📊' },
@@ -56,7 +55,6 @@ export default function Navbar() {
 
         {/* Right side */}
         <div className="flex items-center gap-2">
-          <ThemeToggle />
 
           {/* Avatar + logout (desktop) */}
           {user && (

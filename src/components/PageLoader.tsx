@@ -1,25 +1,20 @@
 export default function PageLoader() {
   return (
-    <div className="min-h-screen bg-bg flex items-center justify-center relative overflow-hidden">
-      {/* Animated gradient orbs */}
-      <div className="absolute top-1/4 left-1/4 orb orb-purple h-96 w-96 opacity-20 animate-orb-pulse blur-3xl" />
-      <div className="absolute bottom-1/4 right-1/4 orb orb-pink h-96 w-96 opacity-15 animate-orb-pulse blur-3xl" style={{ animationDelay: '1s' }} />
-      
-      {/* Loader content */}
-      <div className="relative z-10 text-center">
-        {/* Spinning logo */}
-        <div className="h-20 w-20 rounded-2xl gradient-brand flex items-center justify-center text-white text-3xl font-black mx-auto mb-6 shadow-2xl animate-pulse">
+    <div className="min-h-[60vh] flex items-center justify-center">
+      <div className="text-center">
+        <div
+          className="h-16 w-16 rounded-2xl gradient-brand flex items-center justify-center text-white text-2xl font-black mx-auto mb-5"
+          style={{ boxShadow: '0 8px 32px rgba(108,65,210,0.45)', animation: 'glow-pulse 2s ease-in-out infinite' }}
+        >
           F
         </div>
-        
-        {/* Animated dots */}
-        <div className="flex items-center justify-center gap-2">
-          <div className="h-3 w-3 rounded-full bg-purple-500 animate-bounce" style={{ animationDelay: '0ms' }} />
-          <div className="h-3 w-3 rounded-full bg-purple-400 animate-bounce" style={{ animationDelay: '150ms' }} />
-          <div className="h-3 w-3 rounded-full bg-pink-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+        <div className="flex items-center justify-center gap-2 mb-3">
+          {[0, 150, 300].map(delay => (
+            <div key={delay} className="h-2 w-2 rounded-full animate-bounce"
+              style={{ background: delay === 300 ? '#ec4899' : '#8b5cf6', animationDelay: `${delay}ms` }} />
+          ))}
         </div>
-        
-        <p className="text-sm text-text-secondary mt-4 animate-pulse">Loading your data...</p>
+        <p className="text-xs text-text-muted font-semibold">Loading…</p>
       </div>
     </div>
   )

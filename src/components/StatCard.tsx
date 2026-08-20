@@ -5,23 +5,41 @@ interface Props {
   sub?: string
   icon?: string
   gradient?: string
+  change?: string
+  changeUp?: boolean
   className?: string
 }
 
-export default function StatCard({ label, value, unit, sub, icon, gradient, className = '' }: Props) {
+export default function StatCard({ label, value, unit, sub, icon, gradient, change, changeUp, className = '' }: Props) {
   return (
-    <div className={`card card-hover p-4 sm:p-5 animate-fade-up opacity-0 ${className}`} style={{ animationFillMode: 'forwards' }}>
-      {icon && (
-        <div className={`h-9 w-9 rounded-xl flex items-center justify-center text-lg mb-3 ${gradient ?? 'gradient-brand'}`}>
-          {icon}
-        </div>
-      )}
-      <p className="text-xs font-semibold uppercase tracking-widest text-text-secondary mb-1">{label}</p>
-      <p className="text-2xl font-bold text-text-primary leading-none">
+    <div
+      className={`card card-hover card-shadow p-5 rounded-2xl animate-fade-up opacity-0 ${className}`}
+      style={{ animationFillMode: 'forwards' }}
+    >
+      <div className="flex items-start justify-between mb-3">
+        {icon && (
+          <div className={`h-10 w-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0 ${gradient ?? 'gradient-brand'}`}
+            style={{ boxShadow: gradient ? undefined : '0 4px 12px rgba(108,65,210,0.35)' }}>
+            {icon}
+          </div>
+        )}
+        {change !== undefined && (
+          <span className={`text-[10px] font-bold flex items-center gap-0.5 px-1.5 py-0.5 rounded-full ${
+            changeUp !== false
+              ? 'text-green-400 bg-green-400/10'
+              : 'text-red-400 bg-red-400/10'
+          }`}>
+            {changeUp !== false ? '↑' : '↓'} {change}
+          </span>
+        )}
+      </div>
+
+      <p className="text-[10px] font-bold uppercase tracking-widest text-text-muted mb-1.5">{label}</p>
+      <p className="text-2xl font-black text-text-primary leading-none tracking-tight">
         {value}
-        {unit && <span className="ml-1 text-sm font-normal text-text-secondary">{unit}</span>}
+        {unit && <span className="ml-1 text-sm font-normal text-text-muted">{unit}</span>}
       </p>
-      {sub && <p className="text-xs text-text-secondary mt-1.5">{sub}</p>}
+      {sub && <p className="text-[10px] text-text-muted mt-2 leading-snug">{sub}</p>}
     </div>
   )
 }

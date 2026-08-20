@@ -176,12 +176,24 @@ service cloud.firestore {
       }
 
       // ── FAMILY ────────────────────────────────────────────────────────────
-      // Paths:
-      //   users/{uid}/family/profile
-      //   users/{uid}/family/members/{memberId}
-      //   users/{uid}/family/shopping/list
-      // familyService.ts writes to all three paths.
+      // Paths (updated — odd-segment documents only):
+      //   users/{uid}/familyProfile/data           (5 segments ✓)
+      //   users/{uid}/familyMembers/{memberId}      (4 segments ✓)
+      //   users/{uid}/familyShopping/list           (4 segments ✓)
 
+      match /familyProfile/{docId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /familyMembers/{memberId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /familyShopping/{docId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // Keep old family rules for backwards compatibility with existing data
       match /family/{docId} {
         allow read, write: if isOwner(userId);
       }

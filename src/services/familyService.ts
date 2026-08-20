@@ -6,20 +6,31 @@ import {
 } from 'firebase/firestore'
 
 // ── Firestore paths ───────────────────────────────────────────────────────────
-// users/{uid}/family/profile        — FamilyProfile (name, cuisine pref)
-// users/{uid}/family/members/{id}   — FamilyMember
-// users/{uid}/family/shopping/list  — ShoppingList
+// users/{uid}/familyProfile          — document: FamilyProfile (name, cuisine pref)
+// users/{uid}/familyMembers/{id}     — document: FamilyMember   (5 segments ✓)
+// users/{uid}/familyShopping/list    — document: ShoppingList   (5 segments ✓)
+//
+// NOTE: Firestore requires an ODD number of path segments for documents
+// and EVEN for collections. Paths like 'users/{uid}/family/members' (4 segments)
+// would be a collection, but it has an even number → invalid document reference.
 
-const familyRef    = (uid: string) => doc(db, 'users', uid, 'family', 'profile')
-const memberCol    = (uid: string) => collection(db, 'users', uid, 'family', 'members')
-const memberRef    = (uid: string, id: string) => doc(db, 'users', uid, 'family', 'members', id)
-const shoppingRef  = (uid: string) => doc(db, 'users', uid, 'family', 'shopping', 'list')
+const familyProfileRef = (uid: string) =>
+  doc(db, 'users', uid, 'familyProfile', 'data')          // 5 segments ✓
 
-// ── Family profile ────────────────────────────────────────────────────────────
+const memberCol = (uid: string) =>
+  collection(db, 'users', uid, 'familyMembers')            // 3 segments ✓ (collection)
+
+const memberRef = (uid: string, id: string) =>
+  doc(db, 'users', uid, 'familyMembers', id)               // 4 segments ✓ (document)
+
+const shoppingRef = (uid: string) =>
+  doc(db, 'users', uid, 'familyShopping', 'list')          // 4 segments ✓ (document)
+
+// ── Family profile ─────────────────────────────────────────────────────────────
 
 export async function loadFamilyProfile(uid: string): Promise<FamilyProfile | null> {
   const [profileSnap, membersSnap] = await Promise.all([
-    getDoc(familyRef(uid)),
+    getDoc(familyProfileRef(uid)),
     getDocs(memberCol(uid)),
   ])
   const members: FamilyMember[] = membersSnap.docs.map(d => d.data() as FamilyMember)
@@ -38,10 +49,10 @@ export async function saveFamilyProfile(
   uid: string,
   update: Partial<Pick<FamilyProfile, 'familyName' | 'cuisinePreference'>>,
 ): Promise<void> {
-  await setDoc(familyRef(uid), { ...update, updatedAt: serverTimestamp() }, { merge: true })
+  await setDoc(familyProfileRef(uid), { ...update, updatedAt: serverTimestamp() }, { merge: true })
 }
 
-// ── Members ───────────────────────────────────────────────────────────────────
+// ── Members ────────────────────────────────────────────────────────────────────
 
 export async function saveFamilyMember(uid: string, member: FamilyMember): Promise<void> {
   const now = new Date().toISOString()
@@ -56,7 +67,7 @@ export async function deleteFamilyMember(uid: string, memberId: string): Promise
   await deleteDoc(memberRef(uid, memberId))
 }
 
-// ── Shopping list ─────────────────────────────────────────────────────────────
+// ── Shopping list ──────────────────────────────────────────────────────────────
 
 export async function saveShoppingList(uid: string, list: ShoppingItem[]): Promise<void> {
   await setDoc(shoppingRef(uid), {
@@ -91,7 +102,7 @@ export async function removeShoppingItem(
   return next
 }
 
-// ── ID generator ──────────────────────────────────────────────────────────────
+// ── ID generator ───────────────────────────────────────────────────────────────
 export function newMemberId(): string {
   return `member_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
 }

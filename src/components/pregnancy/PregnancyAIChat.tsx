@@ -5,7 +5,7 @@ interface Props {
   context: AIChatContext
 }
 
-const NETLIFY_BASE = import.meta.env.VITE_NETLIFY_BASE ?? ''
+const NETLIFY_BASE = import.meta.env.DEV ? null : ''
 
 const QUICK_QUESTIONS = [
   'What should I eat this week?',
@@ -79,6 +79,9 @@ export default function PregnancyAIChat({ context }: Props) {
     setError(null)
 
     try {
+      if (NETLIFY_BASE === null) {
+        throw new Error('DEV_MODE')
+      }
       const history = messages.slice(-6).map(m => ({ role: m.role, content: m.content }))
       const res = await fetch(`${NETLIFY_BASE}/.netlify/functions/pregnancyAI`, {
         method: 'POST',
@@ -95,8 +98,11 @@ export default function PregnancyAIChat({ context }: Props) {
         content: data.response,
         timestamp: new Date().toISOString(),
       }])
-    } catch {
-      setError('Could not connect to AI coach. Please check your internet connection and try again.')
+    } catch (err) {
+      const isDev = err instanceof Error && err.message === 'DEV_MODE'
+      setError(isDev
+        ? 'AI Coach requires the deployed app. Run via Netlify or deploy to use this feature.'
+        : 'Could not connect to AI coach. Please check your internet connection and try again.')
     } finally {
       setLoading(false)
     }

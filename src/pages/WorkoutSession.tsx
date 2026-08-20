@@ -113,7 +113,7 @@ export default function WorkoutSession() {
     <div className="min-h-screen bg-bg">
 
       {/* ── Sticky header ── */}
-      <div className="sticky top-0 z-30 glass border-b border-border/60">
+      <div className="sticky top-0 z-30" style={{ background: 'rgba(15,14,26,0.92)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
           <button
             onClick={() => { if (storageKey) localStorage.removeItem(storageKey); navigate('/workout') }}
@@ -128,15 +128,14 @@ export default function WorkoutSession() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between">
               <h1 className="text-sm font-bold text-text-primary truncate">{template.name}</h1>
-              <span className="text-xs font-mono font-bold text-purple-600 dark:text-purple-400 flex-shrink-0 ml-2">
+              <span className="text-xs font-mono font-bold text-purple-400 flex-shrink-0 ml-2">
                 {formatTime(elapsedSeconds)}
               </span>
             </div>
-            {/* Overall progress bar */}
-            <div className="mt-1.5 h-1.5 rounded-full bg-border overflow-hidden">
+              <div className="mt-1.5 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
               <div
-                className="h-full rounded-full bg-gradient-to-r from-purple-600 to-pink-500 transition-all duration-700"
-                style={{ width: `${progress}%` }}
+                className="h-full rounded-full transition-all duration-700"
+                style={{ width: `${progress}%`, background: 'linear-gradient(90deg,#6c41d2,#ec4899)' }}
               />
             </div>
             <p className="text-[10px] text-text-muted mt-0.5">{doneCount}/{totalSets} sets · {progress}% complete</p>
@@ -186,18 +185,19 @@ export default function WorkoutSession() {
             <button
               key={i}
               onClick={() => setActiveIdx(i)}
-              className={`flex-shrink-0 flex flex-col gap-1 px-3.5 py-2.5 rounded-2xl transition-all duration-200 border ${
-                isActive
-                  ? 'border-purple-500 shadow-lg shadow-purple-500/20'
-                  : isDone
-                  ? 'border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20'
-                  : 'border-border bg-surface2 hover:border-purple-300'
-              }`}
-              style={{
+              className="flex-shrink-0 flex flex-col gap-1 px-3.5 py-2.5 rounded-2xl transition-all duration-200"
+          style={{
                 minWidth: 100,
                 background: isActive
-                  ? 'linear-gradient(135deg,#7c3aed,#a855f7)'
-                  : undefined,
+                  ? 'linear-gradient(135deg,#6c41d2,#8b5cf6)'
+                  : isDone
+                  ? 'rgba(16,185,129,0.12)'
+                  : 'rgba(255,255,255,0.04)',
+                border: isActive
+                  ? '1px solid rgba(108,65,210,0.5)'
+                  : isDone
+                  ? '1px solid rgba(16,185,129,0.3)'
+                  : '1px solid rgba(255,255,255,0.07)',
               }}
             >
               <div className="flex items-center gap-1.5">
@@ -269,7 +269,7 @@ export default function WorkoutSession() {
                     key={sIdx}
                     className={`grid grid-cols-12 gap-2 items-center px-2 py-2.5 rounded-xl border transition-all duration-300 ${
                       set.completed
-                        ? 'bg-emerald-50 dark:bg-emerald-900/15 border-emerald-300 dark:border-emerald-800'
+                        ? 'bg-transparent border-emerald-300 dark:border-emerald-800'
                         : 'bg-surface border-border'
                     }`}
                   >
@@ -278,7 +278,7 @@ export default function WorkoutSession() {
                       <div className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-black transition-all ${
                         set.completed
                           ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/30'
-                          : 'bg-gradient-to-br from-purple-100 to-purple-200 dark:from-purple-900/40 dark:to-purple-800/40 text-purple-700 dark:text-purple-300'
+                          : 'bg-gradient-to-br from-purple-900/40 to-purple-800/40 dark:to-purple-800/40 text-purple-300'
                       }`}>
                         {set.completed
                           ? <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7"/></svg>
@@ -345,17 +345,17 @@ export default function WorkoutSession() {
                 onClick={() => setActiveIdx(exIdx)}
                 className={`card p-4 text-left transition-all w-full ${
                   exIdx === activeIdx
-                    ? 'border-purple-400 dark:border-purple-600 ring-1 ring-purple-400/30'
-                    : 'hover:border-purple-200 dark:hover:border-purple-800'
+                    ? 'border-purple-500/50 ring-1 ring-purple-500/20'
+                    : 'hover:border-purple-500/30'
                 }`}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className={`text-sm font-bold ${exIdx === activeIdx ? 'text-purple-600 dark:text-purple-400' : 'text-text-primary'}`}>
+                  <h3 className={`text-sm font-bold ${exIdx === activeIdx ? 'text-purple-400' : 'text-text-primary'}`}>
                     {exIdx === activeIdx && <span className="mr-1">⚡</span>}
                     {ex.exerciseName}
                   </h3>
                   <span className={`text-xs font-semibold ${
-                    ex.sets.every(s=>s.completed) ? 'text-emerald-600 dark:text-emerald-400' : 'text-text-muted'
+                    ex.sets.every(s=>s.completed) ? 'text-green-400' : 'text-text-muted'
                   }`}>
                     {ex.sets.filter(s=>s.completed).length}/{ex.sets.length}
                   </span>

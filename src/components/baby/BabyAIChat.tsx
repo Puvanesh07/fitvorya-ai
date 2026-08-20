@@ -3,7 +3,7 @@ import type { BabyChatMessage, BabyChatContext } from '../../types/baby'
 
 interface Props { context: BabyChatContext }
 
-const NETLIFY_BASE = import.meta.env.VITE_NETLIFY_BASE ?? ''
+const NETLIFY_BASE = import.meta.env.DEV ? null : ''
 
 const QUICK_QUESTIONS = [
   'What can I give today?',
@@ -51,6 +51,7 @@ export default function BabyAIChat({ context }: Props) {
     setLoading(true)
     setError(null)
     try {
+      if (NETLIFY_BASE === null) throw new Error('DEV_MODE')
       const history = messages.slice(-6).map(m => ({ role: m.role, content: m.content }))
       const res = await fetch(`${NETLIFY_BASE}/.netlify/functions/babyAI`, {
         method: 'POST',
@@ -60,8 +61,11 @@ export default function BabyAIChat({ context }: Props) {
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json() as { response: string }
       setMessages(prev => [...prev, { id: (Date.now()+1).toString(), role: 'assistant', content: data.response, timestamp: new Date().toISOString() }])
-    } catch {
-      setError('Could not connect. Please check your connection and try again.')
+    } catch (err) {
+      const isDev = err instanceof Error && err.message === 'DEV_MODE'
+      setError(isDev
+        ? 'AI Coach requires the deployed app. Run via Netlify or deploy to use this feature.'
+        : 'Could not connect. Please check your connection and try again.')
     } finally { setLoading(false) }
   }
 

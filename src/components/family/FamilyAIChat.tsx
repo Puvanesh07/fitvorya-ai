@@ -8,7 +8,7 @@ interface Props {
   cuisinePreference: CuisinePreference
 }
 
-const NETLIFY_BASE = import.meta.env.VITE_NETLIFY_BASE ?? ''
+const NETLIFY_BASE = import.meta.env.DEV ? null : ''
 
 const QUICK_QUESTIONS = [
   'Give us a healthy Tamil dinner',
@@ -75,6 +75,7 @@ export default function FamilyAIChat({ members, familyName, cuisinePreference }:
     }
 
     try {
+      if (NETLIFY_BASE === null) throw new Error('DEV_MODE')
       const history = messages.slice(-6).map(m => ({ role: m.role, content: m.content }))
       const res = await fetch(`${NETLIFY_BASE}/.netlify/functions/familyAI`, {
         method: 'POST',
@@ -87,8 +88,11 @@ export default function FamilyAIChat({ members, familyName, cuisinePreference }:
         id: (Date.now()+1).toString(), role: 'assistant',
         content: data.response, timestamp: new Date().toISOString(),
       }])
-    } catch {
-      setError('Could not connect. Please check your connection and try again.')
+    } catch (err) {
+      const isDev = err instanceof Error && err.message === 'DEV_MODE'
+      setError(isDev
+        ? 'AI Coach requires the deployed app. Run via Netlify or deploy to use this feature.'
+        : 'Could not connect. Please check your connection and try again.')
     } finally { setLoading(false) }
   }
 

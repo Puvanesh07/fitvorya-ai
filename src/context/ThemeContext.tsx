@@ -8,7 +8,7 @@ interface ThemeContextValue {
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
-  theme: 'light',
+  theme: 'dark',
   toggleTheme: () => {},
 })
 
@@ -16,15 +16,18 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>(() => {
     const stored = localStorage.getItem('ft-theme') as Theme | null
     if (stored) return stored
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+    // Default to dark
+    return 'dark'
   })
 
   useEffect(() => {
     const root = document.documentElement
-    if (theme === 'dark') {
-      root.classList.add('dark')
-    } else {
+    if (theme === 'light') {
+      root.classList.add('light')
       root.classList.remove('dark')
+    } else {
+      root.classList.remove('light')
+      root.classList.add('dark')
     }
     localStorage.setItem('ft-theme', theme)
   }, [theme])
