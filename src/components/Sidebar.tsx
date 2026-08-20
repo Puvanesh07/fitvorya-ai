@@ -279,10 +279,10 @@ function MobileNav({
         </div>
 
         {/* Header row: brand + close */}
-        <div className="flex items-center justify-between px-5 pb-4 pt-1">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between px-4 pb-3 pt-1">
+          <div className="flex items-center gap-2.5">
             <div
-              className="h-9 w-9 rounded-xl gradient-brand flex items-center justify-center text-white font-black text-sm"
+              className="h-8 w-8 rounded-xl gradient-brand flex items-center justify-center text-white font-black text-sm"
               style={{ boxShadow: '0 4px 14px rgba(108,65,210,0.45)' }}
             >
               F
@@ -297,25 +297,25 @@ function MobileNav({
           <button
             onClick={() => setSheetOpen(false)}
             aria-label="Close menu"
-            className="h-9 w-9 rounded-full flex items-center justify-center text-text-muted transition-all"
+            className="h-8 w-8 rounded-full flex items-center justify-center text-text-muted transition-all"
             style={{ background: 'rgba(255,255,255,0.08)' }}
           >
-            <IconClose />
+            <IconClose size={18} />
           </button>
         </div>
 
         {/* Divider */}
-        <div className="mx-5 mb-4" style={{ height: '1px', background: 'rgba(255,255,255,0.07)' }} />
+        <div className="mx-4 mb-2" style={{ height: '1px', background: 'rgba(255,255,255,0.07)' }} />
 
         {/* Nav grid — 4 columns */}
-        <div className="grid grid-cols-4 gap-3 px-5 pb-4">
+        <div className="grid grid-cols-4 gap-2 px-4 pb-3">
           {NAV.map((n, i) => (
             <NavLink
               key={n.to}
               to={n.to}
               onClick={() => setSheetOpen(false)}
               aria-label={n.label}
-              className="flex flex-col items-center gap-2 p-3 rounded-2xl transition-all active:scale-95"
+              className="flex flex-col items-center gap-1.5 p-2 rounded-2xl transition-all active:scale-95"
               style={{
                 animationDelay: `${i * 30}ms`,
                 background: 'rgba(255,255,255,0.04)',
@@ -325,7 +325,7 @@ function MobileNav({
               {({ isActive }) => (
                 <>
                   <div
-                    className="h-12 w-12 rounded-2xl flex items-center justify-center transition-all"
+                    className="h-10 w-10 rounded-2xl flex items-center justify-center transition-all"
                     style={{
                       background: isActive
                         ? `${n.color}25`
@@ -337,10 +337,10 @@ function MobileNav({
                       boxShadow: isActive ? `0 4px 14px ${n.color}30` : 'none',
                     }}
                   >
-                    {n.iconLg}
+                    {n.icon}
                   </div>
                   <span
-                    className="text-[10px] font-bold text-center leading-tight"
+                    className="text-[9px] font-bold text-center leading-tight"
                     style={{ color: isActive ? n.color : 'rgba(170,165,210,0.7)' }}
                   >
                     {n.label}
@@ -352,23 +352,23 @@ function MobileNav({
         </div>
 
         {/* Divider */}
-        <div className="mx-5 mb-3" style={{ height: '1px', background: 'rgba(255,255,255,0.07)' }} />
+        <div className="mx-4 mb-3" style={{ height: '1px', background: 'rgba(255,255,255,0.07)' }} />
 
         {/* Sign out */}
-        <div className="px-5 pb-8">
+        <div className="px-4 pb-6">
           <button
             onClick={() => { setSheetOpen(false); handleLogout() }}
-            className="flex items-center gap-3 w-full px-4 py-3 rounded-2xl transition-all active:scale-98"
+            className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-2xl transition-all active:scale-98"
             style={{
               background: 'rgba(255,75,75,0.08)',
               border: '1px solid rgba(255,75,75,0.2)',
             }}
           >
             <div
-              className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0"
+              className="h-8 w-8 rounded-xl flex items-center justify-center flex-shrink-0"
               style={{ background: 'rgba(255,75,75,0.15)', color: 'rgb(255,100,100)' }}
             >
-              <IconLogout size={18} />
+              <IconLogout size={16} />
             </div>
             <span className="text-sm font-bold" style={{ color: 'rgb(255,120,120)' }}>Sign Out</span>
           </button>
@@ -376,11 +376,11 @@ function MobileNav({
       </div>
 
       {/* ── FAB trigger (always visible at bottom-center) ── */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+      <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50">
         <button
           onClick={() => setSheetOpen(!sheetOpen)}
           aria-label={sheetOpen ? 'Close menu' : 'Open navigation'}
-          className="h-14 w-14 rounded-2xl gradient-brand text-white flex items-center justify-center transition-all duration-300 active:scale-95"
+          className="h-12 w-12 rounded-2xl gradient-brand text-white flex items-center justify-center transition-all duration-300 active:scale-95"
           style={{
             boxShadow: sheetOpen
               ? '0 8px 32px rgba(108,65,210,0.7)'
@@ -402,7 +402,7 @@ function MobileNav({
       </div>
 
       {/* Bottom safe-area spacer */}
-      <div className="h-24" aria-hidden="true" />
+      <div className="h-20" aria-hidden="true" />
     </div>
   )
 }

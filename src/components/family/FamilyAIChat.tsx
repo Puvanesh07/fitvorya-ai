@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import type { FamilyMember, FamilyChatMessage, CuisinePreference } from '../../types/family'
 import { ROLE_CONFIG, getMemberAgeLabel } from '../../data/familyData'
+import { askFamilyAI } from '../../services/geminiService'
 
 interface Props {
   members: FamilyMember[]
@@ -8,12 +9,10 @@ interface Props {
   cuisinePreference: CuisinePreference
 }
 
-const NETLIFY_BASE = import.meta.env.DEV ? null : ''
-
 const QUICK_QUESTIONS = [
   'Give us a healthy Tamil dinner',
   'Create a vegetarian family meal',
-  'What\'s a good breakfast for everyone?',
+  "What's a good breakfast for everyone?",
   'Generate a family shopping list',
   'Adapt dinner for our baby',
   'Budget-friendly meal ideas',
@@ -41,19 +40,30 @@ export default function FamilyAIChat({ members, familyName, cuisinePreference }:
     : `Vanakkam! 👨‍👩‍👧 I'm your FitTracker Family Nutrition Coach.\n\nAdd family members in the **Members** tab first so I can give personalised advice for everyone.\n\nI can help with Tamil and global family meals, weekly plans, and shopping lists.`
 
   const [messages, setMessages] = useState<FamilyChatMessage[]>([{
-    id: '0', role: 'assistant', content: introMsg, timestamp: new Date().toISOString(),
+    id: '0',
+    role: 'assistant',
+    content: introMsg,
+    timestamp: new Date().toISOString(),
   }])
   const [input,   setInput]   = useState('')
   const [loading, setLoading] = useState(false)
   const [error,   setError]   = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, loading])
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, loading])
 
   async function sendMessage(text: string) {
     const trimmed = text.trim()
     if (!trimmed || loading) return
-    const userMsg: FamilyChatMessage = { id: Date.now().toString(), role: 'user', content: trimmed, timestamp: new Date().toISOString() }
+
+    const userMsg: FamilyChatMessage = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: trimmed,
+      timestamp: new Date().toISOString(),
+    }
     setMessages(prev => [...prev, userMsg])
     setInput('')
     setLoading(true)
@@ -63,37 +73,31 @@ export default function FamilyAIChat({ members, familyName, cuisinePreference }:
       familyName,
       cuisinePreference,
       members: members.map(m => ({
-        name: m.name,
-        role: m.role,
-        ageLabel: getMemberAgeLabel(m),
-        dietPref: m.dietPref,
-        allergies: m.allergies,
-        pregnancyWeek: m.pregnancyWeek,
-        ageMonths: m.ageMonths,
+        name:                m.name,
+        role:                m.role,
+        ageLabel:            getMemberAgeLabel(m),
+        dietPref:            m.dietPref,
+        allergies:           m.allergies,
+        pregnancyWeek:       m.pregnancyWeek,
+        ageMonths:           m.ageMonths,
         tamilFoodPreference: m.tamilFoodPreference,
       })),
     }
 
     try {
-      if (NETLIFY_BASE === null) throw new Error('DEV_MODE')
       const history = messages.slice(-6).map(m => ({ role: m.role, content: m.content }))
-      const res = await fetch(`${NETLIFY_BASE}/.netlify/functions/familyAI`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: trimmed, familySummary, history }),
-      })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data = await res.json() as { response: string }
+      const reply = await askFamilyAI(trimmed, familySummary, history)
       setMessages(prev => [...prev, {
-        id: (Date.now()+1).toString(), role: 'assistant',
-        content: data.response, timestamp: new Date().toISOString(),
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: reply,
+        timestamp: new Date().toISOString(),
       }])
-    } catch (err) {
-      const isDev = err instanceof Error && err.message === 'DEV_MODE'
-      setError(isDev
-        ? 'AI Coach requires the deployed app. Run via Netlify or deploy to use this feature.'
-        : 'Could not connect. Please check your connection and try again.')
-    } finally { setLoading(false) }
+    } catch {
+      setError('Could not connect. Please check your internet connection and try again.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -112,29 +116,42 @@ export default function FamilyAIChat({ members, familyName, cuisinePreference }:
         <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3" style={{ maxHeight: 440 }}>
           {messages.map(msg => (
             <div key={msg.id} className={`flex gap-2.5 animate-fade-up ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-              <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${msg.role === 'assistant' ? 'bg-gradient-to-br from-emerald-400 to-teal-500 text-white' : 'bg-surface2 border border-border'}`}>
+              <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                msg.role === 'assistant'
+                  ? 'bg-gradient-to-br from-emerald-400 to-teal-500 text-white'
+                  : 'bg-surface2 border border-border'
+              }`}>
                 {msg.role === 'assistant' ? '🤖' : '👤'}
               </div>
-              <div className={`max-w-[80%] rounded-2xl px-4 py-3 ${msg.role === 'user' ? 'bg-gradient-to-br from-emerald-500 to-teal-500 text-white rounded-tr-sm' : 'bg-surface2 border border-border rounded-tl-sm'}`}>
+              <div className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+                msg.role === 'user'
+                  ? 'bg-gradient-to-br from-emerald-500 to-teal-500 text-white rounded-tr-sm'
+                  : 'bg-surface2 border border-border rounded-tl-sm'
+              }`}>
                 {msg.role === 'assistant'
                   ? <div className="flex flex-col gap-0.5">{formatMessage(msg.content)}</div>
-                  : <p className="text-sm text-white">{msg.content}</p>}
+                  : <p className="text-sm text-white">{msg.content}</p>
+                }
                 <p className={`text-[10px] mt-1 ${msg.role === 'user' ? 'text-white/60 text-right' : 'text-text-muted'}`}>
                   {new Date(msg.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                 </p>
               </div>
             </div>
           ))}
+
           {loading && (
             <div className="flex gap-2.5 animate-fade-in">
               <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center">🤖</div>
               <div className="bg-surface2 border border-border rounded-2xl rounded-tl-sm px-4 py-3">
                 <div className="flex gap-1 items-center h-5">
-                  {[0,1,2].map(i => <div key={i} className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay:`${i*150}ms` }} />)}
+                  {[0, 1, 2].map(i => (
+                    <div key={i} className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: `${i * 150}ms` }} />
+                  ))}
                 </div>
               </div>
             </div>
           )}
+
           {error && (
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-2xl p-3 text-xs text-red-700 dark:text-red-300">
               ⚠️ {error}
@@ -147,7 +164,7 @@ export default function FamilyAIChat({ members, familyName, cuisinePreference }:
           <textarea
             value={input}
             onChange={e => setInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input) }}}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input) } }}
             placeholder="Ask about family meals, shopping lists, substitutions…"
             rows={1}
             disabled={loading}
@@ -158,6 +175,7 @@ export default function FamilyAIChat({ members, familyName, cuisinePreference }:
             onClick={() => sendMessage(input)}
             disabled={!input.trim() || loading}
             className="flex-shrink-0 w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white flex items-center justify-center disabled:opacity-40 hover:opacity-90 transition-opacity shadow-md"
+            aria-label="Send message"
           >➤</button>
         </div>
       </div>
@@ -168,7 +186,7 @@ export default function FamilyAIChat({ members, familyName, cuisinePreference }:
         <div className="flex flex-wrap gap-2">
           {QUICK_QUESTIONS.map(q => (
             <button key={q} onClick={() => sendMessage(q)} disabled={loading}
-              className="px-3 py-1.5 bg-surface2 border border-border rounded-full text-xs font-medium text-text-secondary hover:border-emerald-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all disabled:opacity-40">
+              className="px-3 py-1.5 bg-surface2 border border-border rounded-full text-xs font-medium text-text-secondary hover:border-emerald-400 hover:text-emerald-400 transition-all disabled:opacity-40">
               {q}
             </button>
           ))}

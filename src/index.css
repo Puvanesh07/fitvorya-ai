@@ -928,3 +928,43 @@ input[type="search"] {
 /* ── Recharts cursor ─────────────────────────────────────────────────────────── */
 .recharts-tooltip-cursor { fill: rgb(var(--purple-600) / 0.06) !important; }
 .recharts-active-dot circle { stroke: rgb(var(--surface)) !important; stroke-width: 2 !important; }
+
+/* ── Mobile tightening — all overrides below 640px ──────────────────────────── */
+@media (max-width: 639px) {
+  /* Card padding */
+  .card { padding: 0.75rem; }
+
+  /* Accent cards (card-purple, card-blue, etc.) don't have padding in CSS,
+     but we tighten the Tailwind p-5 that's always applied inline by
+     providing a lower-specificity default they can inherit via a helper */
+  .mobile-card-tight { padding: 0.75rem !important; }
+
+  /* Top bar */
+  .top-bar { height: 52px; padding: 0 0.75rem; gap: 0.5rem; }
+
+  /* Buttons — tighten default size slightly */
+  .btn-primary,
+  .btn-purple,
+  .btn-ghost,
+  .btn-danger {
+    padding: 0.55rem 1.1rem;
+    font-size: 0.8rem;
+  }
+  .btn-sm  { padding: 0.35rem 0.8rem; font-size: 0.75rem; }
+  .btn-xs  { padding: 0.25rem 0.6rem; font-size: 0.68rem; }
+
+  /* Input */
+  .input { padding: 0.55rem 0.8rem; font-size: 0.8rem; }
+
+  /* Stat value clamp — tighter on small screens */
+  .stat-value { font-size: clamp(1.25rem, 5vw, 1.75rem); }
+
+  /* Section divider spacing */
+  .section-divider { margin: 1rem 0; }
+
+  /* App main content vertical padding */
+  .app-main-content { padding-top: 1rem; padding-bottom: 1rem; }
+
+  /* Mobile nav bottom sheet inner icons */
+  .mobile-sheet-icon { width: 2.5rem; height: 2.5rem; }
+}

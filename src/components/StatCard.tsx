@@ -13,12 +13,12 @@ interface Props {
 export default function StatCard({ label, value, unit, sub, icon, gradient, change, changeUp, className = '' }: Props) {
   return (
     <div
-      className={`card card-hover card-shadow p-5 rounded-2xl animate-fade-up opacity-0 ${className}`}
+      className={`card card-hover card-shadow p-3 sm:p-5 rounded-2xl animate-fade-up opacity-0 ${className}`}
       style={{ animationFillMode: 'forwards' }}
     >
-      <div className="flex items-start justify-between mb-3">
+      <div className="flex items-start justify-between mb-2 sm:mb-3">
         {icon && (
-          <div className={`h-10 w-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0 ${gradient ?? 'gradient-brand'}`}
+          <div className={`h-8 w-8 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center text-base sm:text-lg flex-shrink-0 ${gradient ?? 'gradient-brand'}`}
             style={{ boxShadow: gradient ? undefined : '0 4px 12px rgba(108,65,210,0.35)' }}>
             {icon}
           </div>
@@ -34,12 +34,12 @@ export default function StatCard({ label, value, unit, sub, icon, gradient, chan
         )}
       </div>
 
-      <p className="text-[10px] font-bold uppercase tracking-widest text-text-muted mb-1.5">{label}</p>
-      <p className="text-2xl font-black text-text-primary leading-none tracking-tight">
+      <p className="text-[10px] font-bold uppercase tracking-widest text-text-muted mb-1">{label}</p>
+      <p className="text-xl sm:text-2xl font-black text-text-primary leading-none tracking-tight">
         {value}
-        {unit && <span className="ml-1 text-sm font-normal text-text-muted">{unit}</span>}
+        {unit && <span className="ml-1 text-xs sm:text-sm font-normal text-text-muted">{unit}</span>}
       </p>
-      {sub && <p className="text-[10px] text-text-muted mt-2 leading-snug">{sub}</p>}
+      {sub && <p className="text-[10px] text-text-muted mt-1.5 leading-snug">{sub}</p>}
     </div>
   )
 }

@@ -167,23 +167,23 @@ export default function Progress() {
     <div className="animate-fade-in">
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-7">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-7">
         <div>
-          <h1 className="text-2xl font-black text-text-primary tracking-tight">
+          <h1 className="text-xl sm:text-2xl font-black text-text-primary tracking-tight">
             Progress <span className="gradient-text">Tracker</span>
           </h1>
-          <p className="text-sm text-text-secondary mt-1">Measurements, streaks & milestones</p>
+          <p className="text-xs sm:text-sm text-text-secondary mt-0.5 sm:mt-1">Measurements, streaks & milestones</p>
         </div>
-        <button onClick={() => setShowAdd(true)} className="btn-purple btn-sm">+ Log Measurements</button>
+        <button onClick={() => setShowAdd(true)} className="btn-purple btn-sm self-start sm:self-auto">+ Log Measurements</button>
       </div>
 
       {/* Summary strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-        <div className="card-orange p-5 rounded-2xl flex flex-col items-center gap-1 animate-fade-up opacity-0"
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mb-4 sm:mb-6">
+        <div className="card-orange p-3 sm:p-5 rounded-2xl flex flex-col items-center gap-1 animate-fade-up opacity-0"
           style={{ animationFillMode: 'forwards' }}>
-          <span className="text-3xl animate-float">🔥</span>
-          <p className="text-3xl font-black text-text-primary tracking-tight mt-1">{streak?.currentStreak ?? 0}</p>
-          <p className="text-xs font-semibold text-text-muted">day streak</p>
+          <span className="text-2xl sm:text-3xl animate-float">🔥</span>
+          <p className="text-2xl sm:text-3xl font-black text-text-primary tracking-tight mt-0.5 sm:mt-1">{streak?.currentStreak ?? 0}</p>
+          <p className="text-[10px] sm:text-xs font-semibold text-text-muted">day streak</p>
           {(streak?.currentStreak ?? 0) > 0 && (
             <p className="text-[10px] text-text-muted">Best: {streak?.longestStreak}d</p>
           )}
@@ -194,33 +194,33 @@ export default function Progress() {
           { label: 'Measurements',  value: summary?.measurementCount ?? 0,   icon: '📏', card: 'card-blue'   },
         ].map((s, i) => (
           <div key={s.label}
-            className={`${s.card} p-5 rounded-2xl animate-fade-up opacity-0`}
+            className={`${s.card} p-3 sm:p-5 rounded-2xl animate-fade-up opacity-0`}
             style={{ animationFillMode: 'forwards', animationDelay: `${(i+1)*65}ms` }}>
-            <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center text-xl mb-2">{s.icon}</div>
-            <p className="text-3xl font-black text-text-primary tracking-tight">{s.value}</p>
-            <p className="text-[11px] font-semibold text-text-muted mt-1">{s.label}</p>
+            <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-xl bg-white/10 flex items-center justify-center text-lg sm:text-xl mb-1.5 sm:mb-2">{s.icon}</div>
+            <p className="text-2xl sm:text-3xl font-black text-text-primary tracking-tight">{s.value}</p>
+            <p className="text-[10px] sm:text-[11px] font-semibold text-text-muted mt-0.5 sm:mt-1">{s.label}</p>
           </div>
         ))}
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1.5 p-1.5 rounded-2xl mb-6 w-fit"
+      <div className="flex gap-1 sm:gap-1.5 p-1 sm:p-1.5 rounded-2xl mb-4 sm:mb-6 w-fit"
         style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
         {(['overview', 'measurements', 'badges'] as const).map(tab => (
           <button key={tab} onClick={() => setActiveTab(tab)}
-            className={`px-5 py-2 rounded-xl text-sm font-bold transition-all capitalize ${
+            className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition-all capitalize ${
               activeTab === tab ? 'gradient-brand text-white' : 'text-text-muted hover:text-text-primary'
             }`}
             style={activeTab === tab ? { boxShadow: '0 4px 14px rgba(108,65,210,0.4)' } : {}}>
-            {tab === 'overview' ? '📊 Overview' : tab === 'measurements' ? '📏 Measurements' : '🏅 Badges'}
+            {tab === 'overview' ? '📊 Overview' : tab === 'measurements' ? '📏 Measures' : '🏅 Badges'}
           </button>
         ))}
       </div>
 
       {/* Overview */}
       {activeTab === 'overview' && (
-        <div className="flex flex-col gap-5">
-          <div className="card card-shadow p-5 rounded-2xl animate-fade-up opacity-0" style={{ animationFillMode: 'forwards' }}>
+        <div className="flex flex-col gap-3 sm:gap-5">
+          <div className="card card-shadow p-3 sm:p-5 rounded-2xl animate-fade-up opacity-0" style={{ animationFillMode: 'forwards' }}>
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-sm font-black text-text-primary">Weight Trend</h2>
@@ -258,7 +258,7 @@ export default function Progress() {
           </div>
 
           {waistChartData.length >= 2 && (
-            <div className="card card-shadow p-5 rounded-2xl animate-fade-up opacity-0"
+            <div className="card card-shadow p-3 sm:p-5 rounded-2xl animate-fade-up opacity-0"
               style={{ animationFillMode: 'forwards', animationDelay: '80ms' }}>
               <h2 className="text-sm font-black text-text-primary mb-4">Waist Trend</h2>
               <ResponsiveContainer width="100%" height={170}>
@@ -275,22 +275,22 @@ export default function Progress() {
           )}
 
           {earnedBadges.length > 0 && (
-            <div className="card card-shadow p-5 rounded-2xl animate-fade-up opacity-0"
+            <div className="card card-shadow p-3 sm:p-5 rounded-2xl animate-fade-up opacity-0"
               style={{ animationFillMode: 'forwards', animationDelay: '160ms' }}>
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-3 sm:mb-4">
                 <h2 className="text-sm font-black text-text-primary">Your Badges</h2>
                 <button onClick={() => setActiveTab('badges')}
                   className="text-xs font-bold text-purple-400 hover:text-purple-300 transition-colors">
                   View all →
                 </button>
               </div>
-              <div className="grid grid-cols-4 sm:grid-cols-6 gap-3">
+              <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 sm:gap-3">
                 {earnedBadges.slice(0, 6).map(b => (
                   <div key={b.id} title={`${b.name}: ${b.description}`}
-                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl card-green"
+                    className="flex flex-col items-center gap-1 sm:gap-1.5 p-2 sm:p-3 rounded-xl card-green"
                     style={{ border: '1px solid rgba(16,185,129,0.25)' }}>
-                    <span className="text-2xl">{b.icon}</span>
-                    <span className="text-[10px] font-black text-text-primary text-center leading-tight">{b.name}</span>
+                    <span className="text-xl sm:text-2xl">{b.icon}</span>
+                    <span className="text-[9px] sm:text-[10px] font-black text-text-primary text-center leading-tight">{b.name}</span>
                   </div>
                 ))}
               </div>
@@ -312,9 +312,9 @@ export default function Progress() {
           ) : (
             measurements.map((m, i) => (
               <div key={m.id}
-                className="card card-shadow p-5 rounded-2xl hover:-translate-y-0.5 transition-all animate-fade-up opacity-0"
+                className="card card-shadow p-3 sm:p-5 rounded-2xl hover:-translate-y-0.5 transition-all animate-fade-up opacity-0"
                 style={{ animationFillMode: 'forwards', animationDelay: `${i * 40}ms` }}>
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between mb-2 sm:mb-3">
                   <div>
                     <p className="text-sm font-black text-text-primary">{formatFullDate(m.date)}</p>
                     {m.notes && <p className="text-xs text-text-muted mt-0.5 italic">"{m.notes}"</p>}
@@ -328,7 +328,7 @@ export default function Progress() {
                     </svg>
                   </button>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1.5 sm:gap-2">
                   {MEASUREMENT_FIELDS.map(f => {
                     const raw = m[f.key] as number | undefined
                     if (raw == null) return null

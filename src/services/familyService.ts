@@ -56,11 +56,27 @@ export async function saveFamilyProfile(
 
 export async function saveFamilyMember(uid: string, member: FamilyMember): Promise<void> {
   const now = new Date().toISOString()
-  await setDoc(memberRef(uid, member.id), {
-    ...member,
-    updatedAt: now,
-    createdAt: member.createdAt ?? now,
-  })
+  // Firestore rejects undefined values — strip them before writing
+  const data: Record<string, unknown> = {
+    id:                  member.id,
+    name:                member.name,
+    role:                member.role,
+    dietPref:            member.dietPref,
+    activityLevel:       member.activityLevel,
+    allergies:           member.allergies,
+    dislikes:            member.dislikes,
+    preferences:         member.preferences,
+    tamilFoodPreference: member.tamilFoodPreference,
+    updatedAt:           now,
+    createdAt:           member.createdAt ?? now,
+  }
+  // Only include optional fields when they have a real value
+  if (member.dateOfBirth   !== undefined) data.dateOfBirth   = member.dateOfBirth
+  if (member.ageYears      !== undefined) data.ageYears      = member.ageYears
+  if (member.ageMonths     !== undefined) data.ageMonths     = member.ageMonths
+  if (member.pregnancyWeek !== undefined) data.pregnancyWeek = member.pregnancyWeek
+
+  await setDoc(memberRef(uid, member.id), data)
 }
 
 export async function deleteFamilyMember(uid: string, memberId: string): Promise<void> {

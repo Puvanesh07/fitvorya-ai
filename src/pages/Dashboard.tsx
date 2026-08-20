@@ -180,10 +180,10 @@ export default function Dashboard() {
     <div className="animate-fade-in">
 
       {/* Page header */}
-      <div className="flex items-center justify-between mb-7 animate-fade-up opacity-0" style={{ animationFillMode: 'forwards' }}>
+      <div className="flex items-center justify-between mb-4 sm:mb-7 animate-fade-up opacity-0" style={{ animationFillMode: 'forwards' }}>
         <div>
-          <p className="text-xs font-semibold text-text-muted uppercase tracking-widest mb-1">{dateStr}</p>
-          <h1 className="text-2xl font-black text-text-primary tracking-tight">
+          <p className="text-[10px] sm:text-xs font-semibold text-text-muted uppercase tracking-widest mb-0.5 sm:mb-1">{dateStr}</p>
+          <h1 className="text-xl sm:text-2xl font-black text-text-primary tracking-tight">
             Hello, <span className="gradient-text">{greeting}</span> 👋
           </h1>
         </div>
@@ -196,25 +196,25 @@ export default function Dashboard() {
       </div>
 
       {/* ── Row 1 — Overview + Today's Activity + Output + Calories ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 sm:gap-5 mb-3 sm:mb-5">
 
         {/* Overview card */}
-        <div className="lg:col-span-3 card card-shadow p-5 rounded-2xl animate-fade-up opacity-0"
+        <div className="sm:col-span-1 lg:col-span-3 card card-shadow p-3 sm:p-5 rounded-2xl animate-fade-up opacity-0"
           style={{ animationFillMode: 'forwards', animationDelay: '50ms' }}>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-black text-text-primary">Overview</h2>
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <h2 className="text-xs sm:text-sm font-black text-text-primary">Overview</h2>
             <button className="flex items-center gap-1 text-xs text-text-muted hover:text-text-secondary transition-colors">
               Monthly <ChevronDownIcon />
             </button>
           </div>
 
           {/* Circular progress + legend */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
             <div className="relative flex-shrink-0">
-              <CircularProgress pct={calPct} size={100} stroke={9} color="#8c41d4" />
+              <CircularProgress pct={calPct} size={88} stroke={8} color="#8c41d4" />
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-base font-black text-text-primary">{calPct > 0 ? `+${Math.round(calPct - 77)}%` : '0%'}</span>
-                <span className="text-[9px] text-text-muted font-medium">Total</span>
+                <span className="text-sm font-black text-text-primary">{calPct > 0 ? `+${Math.round(calPct - 77)}%` : '0%'}</span>
+                <span className="text-[8px] text-text-muted font-medium">Total</span>
               </div>
             </div>
             <div className="flex flex-col gap-2 flex-1">
@@ -239,19 +239,19 @@ export default function Dashboard() {
         </div>
 
         {/* Today's Activity */}
-        <div className="lg:col-span-3 card card-shadow p-5 rounded-2xl animate-fade-up opacity-0"
+        <div className="sm:col-span-1 lg:col-span-3 card card-shadow p-3 sm:p-5 rounded-2xl animate-fade-up opacity-0"
           style={{ animationFillMode: 'forwards', animationDelay: '100ms' }}>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-black text-text-primary">Today's activity</h2>
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <h2 className="text-xs sm:text-sm font-black text-text-primary">Today's activity</h2>
             <button className="flex items-center gap-1 text-xs text-text-muted hover:text-text-secondary transition-colors">
               Recent <ChevronDownIcon />
             </button>
           </div>
 
           {/* Highlight stat */}
-          <div className="gradient-brand rounded-xl p-4 mb-3 text-center"
+          <div className="gradient-brand rounded-xl p-3 sm:p-4 mb-3 text-center"
             style={{ boxShadow: '0 6px 20px rgba(108,65,210,0.4)' }}>
-            <p className="text-2xl font-black text-white">{progressSummary?.workoutCount ?? 0}</p>
+            <p className="text-xl sm:text-2xl font-black text-white">{progressSummary?.workoutCount ?? 0}</p>
             <p className="text-[10px] text-white/70 font-medium">Sessions / Week</p>
           </div>
 
@@ -272,10 +272,10 @@ export default function Dashboard() {
         </div>
 
         {/* Output */}
-        <div className="lg:col-span-3 card card-shadow p-5 rounded-2xl animate-fade-up opacity-0"
+        <div className="sm:col-span-1 lg:col-span-3 card card-shadow p-3 sm:p-5 rounded-2xl animate-fade-up opacity-0"
           style={{ animationFillMode: 'forwards', animationDelay: '150ms' }}>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-black text-text-primary">Output</h2>
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <h2 className="text-xs sm:text-sm font-black text-text-primary">Output</h2>
             <button className="flex items-center gap-1 text-xs text-text-muted hover:text-text-secondary transition-colors">
               Last week <ChevronDownIcon />
             </button>
@@ -283,8 +283,8 @@ export default function Dashboard() {
 
           <div className="flex flex-col gap-3">
             {/* Calorie loss */}
-            <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: 'rgba(245,175,30,0.1)', border: '1px solid rgba(245,175,30,0.2)' }}>
-              <div className="h-9 w-9 rounded-full flex items-center justify-center text-base flex-shrink-0"
+            <div className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-xl" style={{ background: 'rgba(245,175,30,0.1)', border: '1px solid rgba(245,175,30,0.2)' }}>
+              <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full flex items-center justify-center text-sm sm:text-base flex-shrink-0"
                 style={{ background: 'linear-gradient(135deg,#f59e0b,#d97706)' }}>
                 🔥
               </div>
@@ -300,8 +300,8 @@ export default function Dashboard() {
             </div>
 
             {/* Weight loss */}
-            <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)' }}>
-              <div className="h-9 w-9 rounded-full flex items-center justify-center text-base flex-shrink-0"
+            <div className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-xl" style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)' }}>
+              <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full flex items-center justify-center text-sm sm:text-base flex-shrink-0"
                 style={{ background: 'linear-gradient(135deg,#10b981,#059669)' }}>
                 ⚖️
               </div>
@@ -320,10 +320,10 @@ export default function Dashboard() {
         </div>
 
         {/* Calories gauge */}
-        <div className="lg:col-span-3 card card-shadow p-5 rounded-2xl animate-fade-up opacity-0"
+        <div className="sm:col-span-2 lg:col-span-3 card card-shadow p-3 sm:p-5 rounded-2xl animate-fade-up opacity-0"
           style={{ animationFillMode: 'forwards', animationDelay: '200ms' }}>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-black text-text-primary">Calories</h2>
+          <div className="flex items-center justify-between mb-2 sm:mb-3">
+            <h2 className="text-xs sm:text-sm font-black text-text-primary">Calories</h2>
             <button className="flex items-center gap-1 text-xs text-text-muted hover:text-text-secondary transition-colors">
               Today <ChevronDownIcon />
             </button>
@@ -361,28 +361,28 @@ export default function Dashboard() {
       </div>
 
       {/* ── Row 2 — Recommend Activity + Activity chart + Popular Workouts ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 mb-5">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-5 mb-3 sm:mb-5">
 
         {/* Recommend activity list */}
-        <div className="lg:col-span-5 card card-shadow p-5 rounded-2xl animate-fade-up opacity-0"
+        <div className="lg:col-span-5 card card-shadow p-3 sm:p-5 rounded-2xl animate-fade-up opacity-0"
           style={{ animationFillMode: 'forwards', animationDelay: '250ms' }}>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-black text-text-primary">Recommend activity</h2>
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <h2 className="text-xs sm:text-sm font-black text-text-primary">Recommend activity</h2>
             <button className="flex items-center gap-1 text-xs text-text-muted hover:text-text-secondary transition-colors">
               Daily <ChevronDownIcon />
             </button>
           </div>
 
-          <div className="flex flex-col gap-2.5">
+          <div className="flex flex-col gap-2">
             {recommendItems.map((item, i) => (
               <Link
                 key={item.label}
                 to="/workout"
-                className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition-all group animate-fade-up opacity-0"
+                className="flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3 rounded-xl hover:bg-white/5 transition-all group animate-fade-up opacity-0"
                 style={{ animationFillMode: 'forwards', animationDelay: `${300 + i * 50}ms` }}
               >
                 {/* Icon */}
-                <div className={`${item.color} h-10 w-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0`}>
+                <div className={`${item.color} h-8 w-8 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center text-base sm:text-lg flex-shrink-0`}>
                   {item.icon}
                 </div>
 
@@ -408,10 +408,10 @@ export default function Dashboard() {
         </div>
 
         {/* Monthly activity chart */}
-        <div className="lg:col-span-4 card card-shadow p-5 rounded-2xl animate-fade-up opacity-0"
+        <div className="lg:col-span-4 card card-shadow p-3 sm:p-5 rounded-2xl animate-fade-up opacity-0"
           style={{ animationFillMode: 'forwards', animationDelay: '300ms' }}>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-black text-text-primary">Activity</h2>
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <h2 className="text-xs sm:text-sm font-black text-text-primary">Activity</h2>
             <button className="flex items-center gap-1 text-xs text-text-muted hover:text-text-secondary transition-colors">
               Monthly <ChevronDownIcon />
             </button>
@@ -450,16 +450,16 @@ export default function Dashboard() {
         </div>
 
         {/* Popular workout cards */}
-        <div className="lg:col-span-3 card card-shadow p-5 rounded-2xl animate-fade-up opacity-0"
+        <div className="lg:col-span-3 card card-shadow p-3 sm:p-5 rounded-2xl animate-fade-up opacity-0"
           style={{ animationFillMode: 'forwards', animationDelay: '350ms' }}>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-black text-text-primary">Popular workout</h2>
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <h2 className="text-xs sm:text-sm font-black text-text-primary">Popular workout</h2>
             <button className="flex items-center gap-1 text-xs text-text-muted hover:text-text-secondary transition-colors">
               Cardio <ChevronDownIcon />
             </button>
           </div>
 
-          <div className="flex flex-col gap-2.5">
+          <div className="flex flex-col gap-2">
             {[
               { name: 'Push Day', sub: 'Chest expert', img: '💪', color: '#6c41d2', followers: 22, rating: 13 },
               { name: 'MMA Circuit', sub: 'Full body', img: '🥊', color: '#d97706', followers: 23, rating: 14 },
@@ -468,10 +468,10 @@ export default function Dashboard() {
               <Link
                 key={trainer.name}
                 to="/workout"
-                className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/5 transition-all group animate-fade-up opacity-0"
+                className="flex items-center gap-2.5 p-2 sm:p-2.5 rounded-xl hover:bg-white/5 transition-all group animate-fade-up opacity-0"
                 style={{ animationFillMode: 'forwards', animationDelay: `${400 + i * 60}ms` }}
               >
-                <div className="h-10 w-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
+                <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center text-lg sm:text-xl flex-shrink-0"
                   style={{ background: `${trainer.color}22`, border: `1px solid ${trainer.color}44` }}>
                   {trainer.img}
                 </div>
@@ -492,18 +492,18 @@ export default function Dashboard() {
       </div>
 
       {/* ── Row 3 — Fitness Goals + Weight Trend + Stats ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-5">
 
         {/* Fitness goals */}
-        <div className="lg:col-span-5 card card-shadow p-5 rounded-2xl animate-fade-up opacity-0"
+        <div className="lg:col-span-5 card card-shadow p-3 sm:p-5 rounded-2xl animate-fade-up opacity-0"
           style={{ animationFillMode: 'forwards', animationDelay: '400ms' }}>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-black text-text-primary">Fitness goal</h2>
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <h2 className="text-xs sm:text-sm font-black text-text-primary">Fitness goal</h2>
             <button className="flex items-center gap-1 text-xs text-text-muted hover:text-text-secondary transition-colors">
               Today <ChevronDownIcon />
             </button>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
             {[
               { icon: '🧘', label: 'ABS & Stretch', mins: '12 minutes', sub: 'Core strength training', color: 'card-yellow', mintColor: '#f59e0b' },
               { icon: '🏃', label: 'Lifting & Jogging', mins: '10 minutes', sub: 'Cardio endurance', color: 'card-purple', mintColor: '#8b5cf6' },
@@ -511,15 +511,15 @@ export default function Dashboard() {
               { icon: '🦵', label: 'Leg Press', mins: '15 minutes', sub: 'Lower body strength', color: 'card-green', mintColor: '#10b981' },
             ].map(goal => (
               <div key={goal.label}
-                className={`${goal.color} p-3.5 rounded-xl hover:scale-[1.02] transition-transform cursor-pointer`}>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="h-8 w-8 rounded-lg bg-white/10 flex items-center justify-center text-base">{goal.icon}</div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                className={`${goal.color} p-2.5 sm:p-3.5 rounded-xl hover:scale-[1.02] transition-transform cursor-pointer`}>
+                <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+                  <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg bg-white/10 flex items-center justify-center text-sm sm:text-base">{goal.icon}</div>
+                  <span className="text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full"
                     style={{ background: `${goal.mintColor}22`, color: goal.mintColor }}>
                     {goal.mins}
                   </span>
                 </div>
-                <p className="text-xs font-bold text-text-primary leading-tight">{goal.label}</p>
+                <p className="text-[11px] sm:text-xs font-bold text-text-primary leading-tight">{goal.label}</p>
                 <p className="text-[10px] text-text-muted mt-0.5 truncate">{goal.sub}</p>
               </div>
             ))}
@@ -527,15 +527,15 @@ export default function Dashboard() {
         </div>
 
         {/* Weight trend chart */}
-        <div className="lg:col-span-4 card card-shadow p-5 rounded-2xl animate-fade-up opacity-0"
+        <div className="lg:col-span-4 card card-shadow p-3 sm:p-5 rounded-2xl animate-fade-up opacity-0"
           style={{ animationFillMode: 'forwards', animationDelay: '450ms' }}>
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
             <div>
-              <h2 className="text-sm font-black text-text-primary">Weight Trend</h2>
+              <h2 className="text-xs sm:text-sm font-black text-text-primary">Weight Trend</h2>
               <p className="text-[10px] text-text-muted mt-0.5">Last entries</p>
             </div>
             <div className="text-right">
-              <p className="text-xl font-black text-text-primary tracking-tight">
+              <p className="text-lg sm:text-xl font-black text-text-primary tracking-tight">
                 {weights[0]?.weight.toFixed(1) ?? '—'}
                 <span className="text-xs font-normal text-text-muted ml-1">kg</span>
               </p>
@@ -578,16 +578,16 @@ export default function Dashboard() {
         </div>
 
         {/* Quick stats column */}
-        <div className="lg:col-span-3 flex flex-col gap-3 animate-fade-up opacity-0"
+        <div className="lg:col-span-3 flex flex-col gap-2 sm:gap-3 animate-fade-up opacity-0"
           style={{ animationFillMode: 'forwards', animationDelay: '500ms' }}>
           {/* Water */}
-          <div className="card card-shadow p-4 rounded-2xl flex-1">
-            <div className="flex items-center justify-between mb-2">
+          <div className="card card-shadow p-3 sm:p-4 rounded-2xl flex-1">
+            <div className="flex items-center justify-between mb-1.5 sm:mb-2">
               <p className="text-xs font-bold text-text-primary">Hydration</p>
               <span className="text-[10px] text-blue-400 font-bold">{waterPct}%</span>
             </div>
-            <p className="text-2xl font-black text-text-primary tracking-tight mb-2">
-              {(waterTotal/1000).toFixed(1)}<span className="text-sm font-normal text-text-muted ml-1">L</span>
+            <p className="text-xl sm:text-2xl font-black text-text-primary tracking-tight mb-2">
+              {(waterTotal/1000).toFixed(1)}<span className="text-xs sm:text-sm font-normal text-text-muted ml-1">L</span>
             </p>
             <div className="flex items-end gap-1 h-8">
               {Array.from({ length: 10 }).map((_, i) => (
@@ -608,21 +608,21 @@ export default function Dashboard() {
           </div>
 
           {/* Streak */}
-          <div className="card-purple p-4 rounded-2xl flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl gradient-brand flex items-center justify-center text-xl flex-shrink-0"
+          <div className="card-purple p-3 sm:p-4 rounded-2xl flex items-center gap-2 sm:gap-3">
+            <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl gradient-brand flex items-center justify-center text-lg sm:text-xl flex-shrink-0"
               style={{ boxShadow: '0 4px 12px rgba(108,65,210,0.45)' }}>
               🔥
             </div>
             <div>
               <p className="text-xs text-text-muted">Current Streak</p>
-              <p className="text-xl font-black text-text-primary">{progressSummary?.streak.currentStreak ?? 0}
+              <p className="text-lg sm:text-xl font-black text-text-primary">{progressSummary?.streak.currentStreak ?? 0}
                 <span className="text-xs font-normal text-text-muted ml-1">days</span>
               </p>
             </div>
           </div>
 
           {/* Macros */}
-          <div className="card card-shadow p-4 rounded-2xl flex-1">
+          <div className="card card-shadow p-3 sm:p-4 rounded-2xl flex-1">
             <p className="text-xs font-bold text-text-primary mb-3">Today's Macros</p>
             <div className="flex flex-col gap-2">
               {[

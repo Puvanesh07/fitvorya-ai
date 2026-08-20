@@ -46,40 +46,40 @@ export default function Workout() {
     <div className="animate-fade-in">
 
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-black text-text-primary tracking-tight">
+      <div className="mb-4 sm:mb-6">
+        <h1 className="text-xl sm:text-2xl font-black text-text-primary tracking-tight">
           Workout <span className="gradient-text">Hub</span>
         </h1>
-        <p className="text-sm text-text-secondary mt-1">Choose a template and start training</p>
+        <p className="text-xs sm:text-sm text-text-secondary mt-0.5 sm:mt-1">Choose a template and start training</p>
       </div>
 
       {/* Quick stats */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
         {[
           { label: 'Total Workouts', value: totalWorkouts,  icon: '🏋️', card: 'card-purple', accent: '#8b5cf6' },
           { label: 'Active Days',    value: activeDays,     icon: '📅', card: 'card-teal',   accent: '#2dc3be' },
           { label: 'Last 4 Weeks',   value: last4Weeks,     icon: '🔥', card: 'card-yellow', accent: '#f59e0b' },
         ].map((s, i) => (
           <div key={s.label}
-            className={`${s.card} p-5 rounded-2xl animate-fade-up opacity-0`}
+            className={`${s.card} p-3 sm:p-5 rounded-2xl animate-fade-up opacity-0`}
             style={{ animationFillMode: 'forwards', animationDelay: `${i * 55}ms` }}>
-            <div className="h-10 w-10 rounded-xl flex items-center justify-center text-xl mb-3"
+            <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center text-base sm:text-xl mb-2 sm:mb-3"
               style={{ background: `${s.accent}20`, border: `1px solid ${s.accent}35` }}>
               {s.icon}
             </div>
-            <p className="text-3xl font-black text-text-primary tracking-tight">{s.value}</p>
-            <p className="text-[11px] font-semibold text-text-muted mt-1 uppercase tracking-wide">{s.label}</p>
+            <p className="text-2xl sm:text-3xl font-black text-text-primary tracking-tight">{s.value}</p>
+            <p className="text-[10px] sm:text-[11px] font-semibold text-text-muted mt-0.5 sm:mt-1 uppercase tracking-wide">{s.label}</p>
           </div>
         ))}
       </div>
 
       {/* Heatmap */}
-      <div className="card card-shadow p-5 rounded-2xl mb-6 animate-fade-up opacity-0"
+      <div className="card card-shadow p-3 sm:p-5 rounded-2xl mb-4 sm:mb-6 animate-fade-up opacity-0"
         style={{ animationFillMode: 'forwards', animationDelay: '180ms' }}>
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-3 sm:mb-4">
           <div>
-            <h2 className="text-sm font-black text-text-primary">Activity Heatmap</h2>
-            <p className="text-xs text-text-muted mt-0.5">Last 16 weeks</p>
+            <h2 className="text-xs sm:text-sm font-black text-text-primary">Activity Heatmap</h2>
+            <p className="text-[10px] sm:text-xs text-text-muted mt-0.5">Last 16 weeks</p>
           </div>
           <span className="text-xs font-bold px-3 py-1 rounded-full"
             style={{ background: 'rgba(108,65,210,0.15)', border: '1px solid rgba(108,65,210,0.3)', color: '#a78bfa' }}>
@@ -90,11 +90,11 @@ export default function Workout() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1.5 p-1.5 rounded-2xl mb-6 w-fit"
+      <div className="flex gap-1 sm:gap-1.5 p-1 sm:p-1.5 rounded-2xl mb-4 sm:mb-6 w-fit"
         style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
         {(['templates', 'history'] as const).map(tab => (
           <button key={tab} onClick={() => setActiveTab(tab)}
-            className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${
+            className={`px-4 sm:px-6 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
               activeTab === tab
                 ? 'gradient-brand text-white'
                 : 'text-text-muted hover:text-text-primary'
@@ -107,7 +107,7 @@ export default function Workout() {
 
       {/* Templates */}
       {activeTab === 'templates' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
           {BUILT_IN_TEMPLATES.map((t, i) => {
             const meta = TEMPLATE_META[t.id] ?? {
               icon: '🏋️', cardColor: 'card-purple', accent: '#8b5cf6',
@@ -116,11 +116,11 @@ export default function Workout() {
             return (
               <button key={t.id}
                 onClick={() => navigate(`/workout/session/${t.id}`)}
-                className={`${meta.cardColor} p-5 rounded-2xl text-left group hover:-translate-y-1 transition-all duration-200 animate-fade-up opacity-0`}
+                className={`${meta.cardColor} p-3 sm:p-5 rounded-2xl text-left group hover:-translate-y-1 transition-all duration-200 animate-fade-up opacity-0`}
                 style={{ animationFillMode: 'forwards', animationDelay: `${i * 40}ms` }}>
 
-                <div className="flex items-start justify-between mb-4">
-                  <div className="h-12 w-12 rounded-xl flex items-center justify-center text-2xl"
+                <div className="flex items-start justify-between mb-3 sm:mb-4">
+                  <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl flex items-center justify-center text-xl sm:text-2xl"
                     style={{ background: `${meta.accent}20`, border: `1px solid ${meta.accent}35` }}>
                     {meta.icon}
                   </div>
@@ -163,11 +163,11 @@ export default function Workout() {
           ) : (
             history.map((w, i) => (
               <div key={w.id}
-                className="card card-shadow p-5 rounded-2xl hover:-translate-y-0.5 transition-all animate-fade-up opacity-0"
+                className="card card-shadow p-3 sm:p-5 rounded-2xl hover:-translate-y-0.5 transition-all animate-fade-up opacity-0"
                 style={{ animationFillMode: 'forwards', animationDelay: `${i * 35}ms` }}>
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl gradient-brand flex items-center justify-center text-white text-xl flex-shrink-0"
+                <div className="flex items-start justify-between mb-2 sm:mb-3">
+                  <div className="flex items-center gap-2.5 sm:gap-3">
+                    <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl gradient-brand flex items-center justify-center text-white text-lg sm:text-xl flex-shrink-0"
                       style={{ boxShadow: '0 4px 12px rgba(108,65,210,0.4)' }}>🏋️</div>
                     <div>
                       <h3 className="text-sm font-black text-text-primary">{w.name}</h3>

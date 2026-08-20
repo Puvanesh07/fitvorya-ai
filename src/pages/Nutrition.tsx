@@ -71,12 +71,12 @@ export default function Nutrition() {
     <div className="animate-fade-in">
 
       {/* ── Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-7">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-7">
         <div>
-          <h1 className="text-2xl font-black text-text-primary tracking-tight">
+          <h1 className="text-xl sm:text-2xl font-black text-text-primary tracking-tight">
             Nutrition <span className="gradient-text">Tracker</span>
           </h1>
-          <p className="text-sm text-text-secondary mt-1">{formatFullDate(date)}</p>
+          <p className="text-xs sm:text-sm text-text-secondary mt-0.5 sm:mt-1">{formatFullDate(date)}</p>
         </div>
         <div className="flex items-center gap-3">
           <input
@@ -92,20 +92,20 @@ export default function Nutrition() {
       </div>
 
       {/* ── Summary row ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6">
 
         {/* Calories */}
-        <div className="card card-shadow p-5 rounded-2xl animate-fade-up opacity-0" style={{ animationFillMode: 'forwards' }}>
-          <div className="flex items-center justify-between mb-3">
-            <div className="h-10 w-10 rounded-xl flex items-center justify-center text-xl"
+        <div className="card card-shadow p-3 sm:p-5 rounded-2xl animate-fade-up opacity-0" style={{ animationFillMode: 'forwards' }}>
+          <div className="flex items-center justify-between mb-2 sm:mb-3">
+            <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center text-lg sm:text-xl"
               style={{ background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.25)' }}>🔥</div>
             <span className="text-xs font-bold px-2 py-1 rounded-full"
               style={{ background: 'rgba(245,158,11,0.12)', color: '#f59e0b' }}>{calPct}%</span>
           </div>
-          <p className="text-xs text-text-muted font-semibold uppercase tracking-wider mb-1.5">Calories</p>
-          <p className="text-3xl font-black text-text-primary tracking-tight">
+          <p className="text-xs text-text-muted font-semibold uppercase tracking-wider mb-1">Calories</p>
+          <p className="text-2xl sm:text-3xl font-black text-text-primary tracking-tight">
             {Math.round(nutrition.calories).toLocaleString()}
-            <span className="text-sm font-normal text-text-muted ml-1">/ {Math.round(targetCals)}</span>
+            <span className="text-xs sm:text-sm font-normal text-text-muted ml-1">/ {Math.round(targetCals)}</span>
           </p>
           <div className="mt-3 progress-bar">
             <div className="progress-bar-fill progress-bar-amber" style={{ width: `${calPct}%`,
@@ -114,9 +114,9 @@ export default function Nutrition() {
         </div>
 
         {/* Macros donut */}
-        <div className="card card-shadow p-5 rounded-2xl animate-fade-up opacity-0"
+        <div className="card card-shadow p-3 sm:p-5 rounded-2xl animate-fade-up opacity-0"
           style={{ animationFillMode: 'forwards', animationDelay: '60ms' }}>
-          <p className="text-sm font-black text-text-primary mb-4">Macros</p>
+          <p className="text-xs sm:text-sm font-black text-text-primary mb-3 sm:mb-4">Macros</p>
           {macroData.length > 0 ? (
             <div className="flex items-center gap-4">
               <div className="flex-shrink-0">
@@ -161,18 +161,18 @@ export default function Nutrition() {
         </div>
 
         {/* Water */}
-        <div className="card card-shadow p-5 rounded-2xl animate-fade-up opacity-0"
+        <div className="card card-shadow p-3 sm:p-5 rounded-2xl animate-fade-up opacity-0"
           style={{ animationFillMode: 'forwards', animationDelay: '120ms' }}>
-          <div className="flex items-center justify-between mb-3">
-            <div className="h-10 w-10 rounded-xl flex items-center justify-center text-xl"
+          <div className="flex items-center justify-between mb-2 sm:mb-3">
+            <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center text-lg sm:text-xl"
               style={{ background: 'rgba(96,165,250,0.15)', border: '1px solid rgba(96,165,250,0.25)' }}>💧</div>
             <span className="text-xs font-bold px-2 py-1 rounded-full"
               style={{ background: 'rgba(96,165,250,0.12)', color: '#60a5fa' }}>{waterPct}%</span>
           </div>
-          <p className="text-xs text-text-muted font-semibold uppercase tracking-wider mb-1.5">Hydration</p>
-          <p className="text-3xl font-black text-text-primary tracking-tight">
+          <p className="text-xs text-text-muted font-semibold uppercase tracking-wider mb-1">Hydration</p>
+          <p className="text-2xl sm:text-3xl font-black text-text-primary tracking-tight">
             {(waterTotal / 1000).toFixed(1)}
-            <span className="text-sm font-normal text-text-muted ml-1">/ {waterGoal / 1000}L</span>
+            <span className="text-xs sm:text-sm font-normal text-text-muted ml-1">/ {waterGoal / 1000}L</span>
           </p>
           <div className="grid grid-cols-4 gap-1.5 mt-3">
             {WATER_PRESETS.map(ml => (
@@ -188,7 +188,7 @@ export default function Nutrition() {
       </div>
 
       {/* ── Meal sections ── */}
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3 sm:gap-4">
         {mealGroups.map(({ type, entries }, gi) => {
           const mealNutrition = sumNutrition(entries)
           const meta = MEAL_CARD_COLORS[type]
@@ -198,9 +198,9 @@ export default function Nutrition() {
               style={{ animationFillMode: 'forwards', animationDelay: `${gi * 55}ms` }}>
 
               {/* Meal header */}
-              <div className="flex items-center justify-between px-5 py-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
+              <div className="flex items-center justify-between px-3 sm:px-5 py-3 sm:py-4">
+                <div className="flex items-center gap-2.5 sm:gap-3">
+                  <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center text-lg sm:text-xl flex-shrink-0"
                     style={{ background: meta.icon_bg, border: `1px solid ${meta.accent}33` }}>
                     {MEAL_ICONS[type]}
                   </div>
