@@ -4,12 +4,11 @@ import { useAuth } from '../context/AuthContext'
 import { updateUserProfile } from '../firebase/firestore'
 import LoadingSpinner from '../components/LoadingSpinner'
 import type { Gender, ActivityLevel, FitnessGoal } from '../types'
-
 const STEPS = ['basics', 'metrics', 'goals'] as const
 type Step = typeof STEPS[number]
 
 export default function Onboarding() {
-  const { user } = useAuth()
+  const { user, refreshProfile } = useAuth()
   const navigate = useNavigate()
 
   const [step, setStep] = useState<Step>('basics')
@@ -53,6 +52,8 @@ export default function Onboarding() {
         targetWeight: targetWeight ? Number(targetWeight) : undefined,
         onboardingComplete: true,
       })
+      // Refresh profile in AuthContext so OnboardedRoute sees onboardingComplete=true
+      await refreshProfile()
       navigate('/dashboard')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save. Please try again.')

@@ -2,8 +2,6 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signInWithPopup,
-  signInWithRedirect,
-  getRedirectResult,
   GoogleAuthProvider,
   signOut,
   onAuthStateChanged,
@@ -15,6 +13,9 @@ import {
 import { auth } from './config'
 
 const googleProvider = new GoogleAuthProvider()
+// Request email scope so we always get the email address
+googleProvider.addScope('email')
+googleProvider.addScope('profile')
 
 // ─── Register ────────────────────────────────────────────────────────────────
 
@@ -25,11 +26,10 @@ export async function registerWithEmail(
 ): Promise<User> {
   const credential = await createUserWithEmailAndPassword(auth, email, password)
   await updateProfile(credential.user, { displayName })
-  // Send verification email (non-blocking — don't fail registration if this errors)
   try {
     await sendEmailVerification(credential.user)
   } catch {
-    // Best effort — user can request resend from profile
+    // Non-blocking — user can resend from profile
   }
   return credential.user
 }
@@ -42,47 +42,16 @@ export async function resendVerificationEmail(): Promise<void> {
 
 // ─── Login ───────────────────────────────────────────────────────────────────
 
-export async function loginWithEmail(
-  email: string,
-  password: string,
-): Promise<User> {
+export async function loginWithEmail(email: string, password: string): Promise<User> {
   const credential = await signInWithEmailAndPassword(auth, email, password)
   return credential.user
 }
 
-/** Sign in with Google.
- *  Uses popup on desktop and direct-URL browsers.
- *  Falls back to redirect only for in-app browsers (Instagram, TikTok, etc.)
- *  where popups are genuinely blocked by the OS webview. */
 export async function loginWithGoogle(): Promise<User> {
-  const isInAppBrowser = /FBAN|FBAV|Instagram|Twitter|Line\/|wv\)/.test(navigator.userAgent)
-
-  if (isInAppBrowser) {
-    await signInWithRedirect(auth, googleProvider)
-    throw new Error('Redirecting…')
-  }
-
-  try {
-    const credential = await signInWithPopup(auth, googleProvider)
-    return credential.user
-  } catch (err: unknown) {
-    // Popup blocked by browser settings — fall back to redirect
-    if (err instanceof Error && err.message.includes('popup-blocked')) {
-      await signInWithRedirect(auth, googleProvider)
-      throw new Error('Redirecting…')
-    }
-    throw err
-  }
-}
-
-/** Call once on app startup inside AuthContext to capture the redirect result */
-export async function getGoogleRedirectResult(): Promise<User | null> {
-  try {
-    const result = await getRedirectResult(auth)
-    return result?.user ?? null
-  } catch {
-    return null
-  }
+  // Always use popup — it works on all modern browsers including Firebase Hosting.
+  // The COOP warnings in the console are informational only and don't break sign-in.
+  const credential = await signInWithPopup(auth, googleProvider)
+  return credential.user
 }
 
 // ─── Account deletion ────────────────────────────────────────────────────────

@@ -25,7 +25,7 @@ export default function Landing() {
         {/* Tagline */}
         <h2 className="text-3xl sm:text-5xl font-black text-text-primary mb-4 leading-tight animate-fade-up opacity-0"
           style={{ animationFillMode: 'forwards', animationDelay: '100ms' }}>
-          Your AI-Powered<br />Fitness Companion
+          Your AI-Ppppowered<br />Fitness Companion
         </h2>
         <p className="text-base sm:text-lg text-text-secondary max-w-xl mx-auto mb-10 animate-fade-up opacity-0"
           style={{ animationFillMode: 'forwards', animationDelay: '200ms' }}>

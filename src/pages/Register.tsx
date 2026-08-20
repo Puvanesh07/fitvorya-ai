@@ -1,36 +1,38 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { registerWithEmail, loginWithGoogle } from '../firebase/auth'
 import LoadingSpinner from '../components/LoadingSpinner'
 
 export default function Register() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [email, setEmail]                   = useState('')
+  const [password, setPassword]             = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-  const navigate = useNavigate()
+  const [error, setError]                   = useState('')
+  const [loading, setLoading]               = useState(false)
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError('')
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.')
-      return
-    }
-    if (password !== confirmPassword) {
-      setError('Passwords do not match.')
-      return
-    }
+    if (password.length < 6) { setError('Password must be at least 6 characters.'); return }
+    if (password !== confirmPassword) { setError('Passwords do not match.'); return }
 
     setLoading(true)
     try {
       await registerWithEmail(email, password, email.split('@')[0])
-      navigate('/onboarding')
+      // Don't navigate manually — AuthContext sees the new user via onAuthStateChanged,
+      // profile=null (no doc yet), OnboardedRoute redirects to /onboarding automatically
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Registration failed.')
-    } finally {
+      const msg = err instanceof Error ? err.message : ''
+      if (msg.includes('email-already-in-use')) {
+        setError('An account with this email already exists. Try signing in.')
+      } else if (msg.includes('weak-password')) {
+        setError('Password is too weak. Use at least 6 characters.')
+      } else if (msg.includes('invalid-email')) {
+        setError('Please enter a valid email address.')
+      } else {
+        setError('Registration failed. Please try again.')
+      }
       setLoading(false)
     }
   }
@@ -40,68 +42,48 @@ export default function Register() {
     setLoading(true)
     try {
       await loginWithGoogle()
-      navigate('/onboarding')
+      // AuthContext picks up the new user automatically
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Google sign-in failed.')
-    } finally {
+      const msg = err instanceof Error ? err.message : ''
+      if (msg.includes('popup-closed') || msg.includes('cancelled')) {
+        // User dismissed — not an error
+      } else if (msg.includes('popup-blocked')) {
+        setError('Popup was blocked. Please allow popups for this site and try again.')
+      } else {
+        setError('Google sign-in failed. Please try again.')
+      }
       setLoading(false)
     }
   }
 
   return (
     <div className="min-h-screen bg-bg flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Decorative orbs */}
       <div className="absolute top-10 left-10 orb orb-purple h-96 w-96 opacity-15 animate-orb-pulse blur-3xl" />
       <div className="absolute bottom-10 right-10 orb orb-pink h-72 w-72 opacity-20 animate-orb-pulse blur-3xl" style={{ animationDelay: '1s' }} />
 
-      {/* Form card */}
       <div className="relative z-10 w-full max-w-md">
         <div className="card p-8 card-shadow animate-scale-in">
-          {/* Header */}
           <div className="text-center mb-8">
-            <div className="h-14 w-14 rounded-2xl gradient-brand flex items-center justify-center text-white text-2xl font-black mx-auto mb-4 shadow-xl">
-              F
-            </div>
+            <div className="h-14 w-14 rounded-2xl gradient-brand flex items-center justify-center text-white text-2xl font-black mx-auto mb-4 shadow-xl">F</div>
             <h1 className="text-2xl font-black text-text-primary mb-2">Create Account</h1>
             <p className="text-sm text-text-secondary">Start your fitness journey today</p>
           </div>
 
-          {/* Form */}
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div>
               <label className="block text-sm font-semibold text-text-primary mb-2">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="input"
-                placeholder="you@example.com"
-                required
-              />
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                className="input" placeholder="you@example.com" required autoComplete="email" />
             </div>
-
             <div>
               <label className="block text-sm font-semibold text-text-primary mb-2">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="input"
-                placeholder="At least 6 characters"
-                required
-              />
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+                className="input" placeholder="At least 6 characters" required autoComplete="new-password" />
             </div>
-
             <div>
               <label className="block text-sm font-semibold text-text-primary mb-2">Confirm Password</label>
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="input"
-                placeholder="Re-enter password"
-                required
-              />
+              <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
+                className="input" placeholder="Re-enter password" required autoComplete="new-password" />
             </div>
 
             {error && (
@@ -111,22 +93,20 @@ export default function Register() {
             )}
 
             <button type="submit" disabled={loading} className="btn-purple w-full py-3 text-base mt-2">
-              {loading && <LoadingSpinner size="sm" />}
-              {loading ? 'Creating account...' : 'Sign Up'}
+              {loading ? <LoadingSpinner size="sm" /> : null}
+              {loading ? 'Creating account…' : 'Sign Up'}
             </button>
 
-            <div className="relative my-4">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-border" />
-              </div>
+            <div className="relative my-2">
+              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border" /></div>
               <div className="relative flex justify-center text-xs">
                 <span className="bg-surface px-3 text-text-secondary">Or continue with</span>
               </div>
             </div>
 
             <button type="button" onClick={handleGoogleSignIn} disabled={loading}
-              className="btn-ghost w-full py-3 text-base flex items-center justify-center gap-2">
-              <svg className="h-5 w-5" viewBox="0 0 24 24">
+              className="btn-ghost w-full py-3 text-sm flex items-center justify-center gap-2">
+              <svg className="h-5 w-5 flex-shrink-0" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                 <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
@@ -136,21 +116,16 @@ export default function Register() {
             </button>
           </form>
 
-          {/* Footer */}
           <div className="mt-6 text-center">
             <p className="text-sm text-text-secondary">
               Already have an account?{' '}
-              <Link to="/login" className="text-purple-600 font-semibold hover:underline">
-                Sign in
-              </Link>
+              <Link to="/login" className="text-purple-600 font-semibold hover:underline">Sign in</Link>
             </p>
           </div>
         </div>
 
         <div className="text-center mt-6">
-          <Link to="/" className="text-sm text-text-secondary hover:text-text-primary transition-colors">
-            ← Back to home
-          </Link>
+          <Link to="/" className="text-sm text-text-secondary hover:text-text-primary transition-colors">← Back to home</Link>
         </div>
       </div>
     </div>
