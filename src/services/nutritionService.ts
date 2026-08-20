@@ -1,47 +1,40 @@
-import { getApp } from 'firebase/app'
-import { getFunctions, httpsCallable } from 'firebase/functions'
 import type { FoodItem, MealEntry, MealType, WaterEntry } from '../types/nutrition'
 import {
   addMealEntry, getMealEntriesForDate, getMealEntriesForRange,
   deleteMealEntry, addWaterEntry, getWaterEntriesForDate, deleteWaterEntry,
 } from '../firebase/firestoreNutrition'
 
-// ── Food search via Cloud Function ───────────────────────────────────────────
-// The USDA API key lives in Cloud Functions secrets — never in client JS.
-// Falls back to local FALLBACK_FOODS on network error (offline / cold start).
+// ── Netlify function URL ──────────────────────────────────────────────────────
+// In dev (Vite), VITE_NETLIFY_BASE is set to http://localhost:8888 via .env.local
+// In production on Netlify, it's empty so the path is relative (same origin).
+const NETLIFY_BASE = import.meta.env.VITE_NETLIFY_BASE ?? ''
 
-interface SearchFoodResult {
-  foods: Array<{
-    fdcId: string
-    name: string
-    brand?: string
-    calories: number
-    protein: number
-    carbs: number
-    fat: number
-    fiber: number
-    servingSize?: number
-    servingUnit?: string
-  }>
-  source: string
-}
+// ── Food search via Netlify Function ─────────────────────────────────────────
+// USDA API key lives in Netlify environment variables — never in client JS.
+// Falls back to local FALLBACK_FOODS on network error or when key not set.
 
 export async function searchFood(query: string): Promise<FoodItem[]> {
   const trimmed = query.trim()
   if (trimmed.length < 2) return FALLBACK_FOODS.slice(0, 10)
 
-  // Local match first — instant, no network
+  // Always search local first — instant, zero network cost
   const localMatches = FALLBACK_FOODS.filter(f =>
     f.name.toLowerCase().includes(trimmed.toLowerCase()),
   )
 
   try {
-    const fn = getFunctions(getApp(), 'us-central1')
-    const callable = httpsCallable<{ query: string }, SearchFoodResult>(fn, 'searchFood')
-    const result = await callable({ query: trimmed })
-    const apiItems = result.data.foods as FoodItem[]
+    const res = await fetch(`${NETLIFY_BASE}/.netlify/functions/searchFood`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ query: trimmed }),
+    })
 
-    // Merge: local results first, then Cloud Function results (deduped by fdcId)
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+
+    const data = await res.json() as { foods: FoodItem[]; source: string }
+    const apiItems: FoodItem[] = data.foods ?? []
+
+    // Merge: local first, then API results (deduped by fdcId)
     const seen = new Set(localMatches.map(f => f.fdcId))
     const merged = [...localMatches]
     for (const f of apiItems) {
@@ -52,7 +45,7 @@ export async function searchFood(query: string): Promise<FoodItem[]> {
     }
     return merged.slice(0, 20)
   } catch {
-    // Network error, cold start, or function not deployed — fall back to local
+    // Netlify not deployed yet, offline, or missing API key — use local DB
     return localMatches.length > 0 ? localMatches : FALLBACK_FOODS.slice(0, 10)
   }
 }
