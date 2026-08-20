@@ -13,7 +13,7 @@ import {
   serverTimestamp,
   Timestamp,
 } from 'firebase/firestore'
-import { db } from './config'
+import { db, auth } from './config'
 import type { UserProfile } from '../types/user'
 import type { WeightEntry } from '../types/weight'
 import { localTodayISO } from '../utils/format'
@@ -44,9 +44,13 @@ export async function updateUserProfile(
   updates: Partial<UserProfile>,
 ): Promise<void> {
   const ref = doc(db, 'users', uid)
-  // setDoc with merge:true creates if missing AND is atomic — no race condition
+  // Always include uid so it's present when this call creates the document
+  // (setDoc merge:true acts as create when doc doesn't exist yet)
+  const email = auth.currentUser?.email ?? (updates as Record<string, unknown>).email ?? ''
   await setDoc(ref, {
     ...stripUndefined(updates as Record<string, unknown>),
+    uid,
+    ...(email ? { email } : {}),
     updatedAt: serverTimestamp(),
   }, { merge: true })
 }

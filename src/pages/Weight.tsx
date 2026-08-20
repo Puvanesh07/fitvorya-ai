@@ -4,7 +4,7 @@ import PageLoader from '../components/PageLoader'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { addWeight, fetchWeightHistory, removeWeight } from '../services/weightService'
 import type { WeightEntry } from '../types'
-import { todayISO, formatFullDate } from '../utils/format'
+import { localTodayISO, formatFullDate } from '../utils/format'
 import { useUnit, kgToDisplay, displayToKg } from '../hooks/useUnit'
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
 
@@ -137,7 +137,9 @@ export default function Weight() {
                   <p className="text-lg font-black text-text-primary">
                     {kgToDisplay(w.weight, unit).toFixed(1)} <span className="text-sm font-normal text-text-muted">{unit}</span>
                   </p>
-                  <button onClick={async () => { await removeWeight(uid, w.id); load(); }}
+                  <button
+                    onClick={async () => { await removeWeight(uid, w.id); load(); }}
+                    aria-label={`Delete weight entry from ${formatFullDate(w.date)}`}
                     className="h-8 w-8 rounded-lg border border-border flex items-center justify-center text-text-muted hover:border-danger hover:text-danger transition-all">
                     <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -151,26 +153,25 @@ export default function Weight() {
       </div>
 
       {/* Add Weight Modal */}
-      {showAdd && <AddWeightModal uid={uid} unit={unit} onClose={() => setShowAdd(false)} onAdded={load} />}
+      {showAdd && <AddWeightModal uid={uid} unit={unit} lastWeightKg={current?.weight} onClose={() => setShowAdd(false)} onAdded={load} />}
     </div>
   )
 }
 
 // ── Add Weight Modal ──────────────────────────────────────────────────────────
 function AddWeightModal({
-  uid, unit, onClose, onAdded,
+  uid, unit, lastWeightKg, onClose, onAdded,
 }: {
-  uid: string; unit: 'kg' | 'lbs'; onClose: () => void; onAdded: () => void;
+  uid: string; unit: 'kg' | 'lbs'; lastWeightKg?: number; onClose: () => void; onAdded: () => void;
 }) {
-  const [date, setDate] = useState(todayISO())
+  const [date, setDate] = useState(localTodayISO())
   const [weight, setWeight] = useState('')
   const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [showOutlierWarning, setShowOutlierWarning] = useState(false)
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault()
-    if (!weight) { setError('Enter your weight.'); return }
+  async function saveEntry() {
     setSaving(true)
     setError('')
     try {
@@ -185,6 +186,21 @@ function AddWeightModal({
     }
   }
 
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    if (!weight) { setError('Enter your weight.'); return }
+
+    // Outlier guard: warn if entry differs > 15 kg from the last logged weight
+    if (lastWeightKg !== undefined) {
+      const enteredKg = displayToKg(Number(weight), unit)
+      if (Math.abs(enteredKg - lastWeightKg) > 15) {
+        setShowOutlierWarning(true)
+        return
+      }
+    }
+    await saveEntry()
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
@@ -193,39 +209,62 @@ function AddWeightModal({
         <div className="card p-6">
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-lg font-bold text-text-primary">Log Weight</h2>
-            <button onClick={onClose} className="h-8 w-8 rounded-lg hover:bg-surface2 flex items-center justify-center text-text-secondary transition-colors">
-              ✕
+            <button onClick={onClose} aria-label="Close" className="h-8 w-8 rounded-lg hover:bg-surface2 flex items-center justify-center text-text-secondary transition-colors">
+              <span aria-hidden="true">✕</span>
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <div>
-              <label className="block text-sm font-semibold text-text-primary mb-2">Date</label>
-              <input type="date" value={date} max={todayISO()} onChange={(e) => setDate(e.target.value)} className="input" />
+          {showOutlierWarning ? (
+            /* Outlier confirmation */
+            <div className="flex flex-col gap-4">
+              <div className="card-yellow p-4">
+                <p className="text-sm font-bold text-text-primary mb-1">⚠️ Unusual Entry</p>
+                <p className="text-xs text-text-secondary">
+                  This entry ({weight} {unit}) differs by more than 15 kg from your last logged
+                  weight ({lastWeightKg !== undefined ? kgToDisplay(lastWeightKg, unit).toFixed(1) : '—'} {unit}).
+                  Is that correct?
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <button type="button" onClick={() => setShowOutlierWarning(false)} className="btn-ghost flex-1">
+                  ← Edit
+                </button>
+                <button type="button" onClick={saveEntry} disabled={saving} className="btn-purple flex-1">
+                  {saving && <LoadingSpinner size="sm" />}
+                  Yes, save it
+                </button>
+              </div>
             </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              <div>
+                <label className="block text-sm font-semibold text-text-primary mb-2">Date</label>
+                <input type="date" value={date} max={localTodayISO()} onChange={(e) => setDate(e.target.value)} className="input" />
+              </div>
 
-            <div>
-              <label className="block text-sm font-semibold text-text-primary mb-2">Weight ({unit})</label>
-              <input type="number" value={weight} onChange={(e) => setWeight(e.target.value)}
-                className="input" step="0.1" min={20} max={300} placeholder={unit === 'lbs' ? '150' : '70'} required />
-            </div>
+              <div>
+                <label className="block text-sm font-semibold text-text-primary mb-2">Weight ({unit})</label>
+                <input type="number" value={weight} onChange={(e) => setWeight(e.target.value)}
+                  className="input" step="0.1" min={20} max={300} placeholder={unit === 'lbs' ? '150' : '70'} required />
+              </div>
 
-            <div>
-              <label className="block text-sm font-semibold text-text-primary mb-2">Note (optional)</label>
-              <input type="text" value={note} onChange={(e) => setNote(e.target.value)}
-                className="input" placeholder="Felt great today" maxLength={200} />
-            </div>
+              <div>
+                <label className="block text-sm font-semibold text-text-primary mb-2">Note (optional)</label>
+                <input type="text" value={note} onChange={(e) => setNote(e.target.value)}
+                  className="input" placeholder="Felt great today" maxLength={200} />
+              </div>
 
-            {error && <p className="text-xs text-danger bg-danger/10 border border-danger/20 rounded-xl px-4 py-2.5">{error}</p>}
+              {error && <p className="text-xs text-danger bg-danger/10 border border-danger/20 rounded-xl px-4 py-2.5">{error}</p>}
 
-            <div className="flex gap-3">
-              <button type="button" onClick={onClose} className="btn-ghost flex-1">Cancel</button>
-              <button type="submit" disabled={saving} className="btn-purple flex-1">
-                {saving && <LoadingSpinner size="sm" />}
-                Save
-              </button>
-            </div>
-          </form>
+              <div className="flex gap-3">
+                <button type="button" onClick={onClose} className="btn-ghost flex-1">Cancel</button>
+                <button type="submit" disabled={saving} className="btn-purple flex-1">
+                  {saving && <LoadingSpinner size="sm" />}
+                  Save
+                </button>
+              </div>
+            </form>
+          )}
         </div>
       </div>
     </div>

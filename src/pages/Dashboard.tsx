@@ -84,11 +84,20 @@ export default function Dashboard() {
     kg: w.weight,
   }))
 
-  const targetCals = metrics.targetCalories
-  const calsPct = Math.round((todayNutrition.calories / targetCals) * 100)
   const waterPct = Math.round((waterTotal / waterGoal) * 100)
-
   const greeting = `Hello, ${profile.displayName?.split(' ')[0] ?? 'User'}`
+
+  // Workouts per week — last 4 complete ISO weeks (real data)
+  const workoutsPerWeek = Array.from({ length: 4 }, (_, i) => {
+    const weekStart = new Date()
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay() - (3 - i) * 7)
+    const weekEnd = new Date(weekStart)
+    weekEnd.setDate(weekStart.getDate() + 6)
+    const startStr = dateToISO(weekStart)
+    const endStr   = dateToISO(weekEnd)
+    const count = recentWorkouts.filter(w => w.date >= startStr && w.date <= endStr).length
+    return { week: `W${i + 1}`, count }
+  })
   const dateStr = formatFullDate(localTodayISO())
 
   return (
@@ -147,7 +156,7 @@ export default function Dashboard() {
             <span className="text-xl mb-2 block">🔥</span>
             <p className="text-[10px] text-text-secondary font-semibold mb-1">Calories Burned</p>
             <p className="text-3xl font-black text-text-primary mb-0.5">{todayNutrition.calories.toLocaleString()}<span className="text-base font-normal text-text-muted">kcal</span></p>
-            <p className="text-[10px] text-text-secondary">+{calsPct}% from last week</p>
+            <p className="text-[10px] text-text-secondary">Goal: {Math.round(metrics.targetCalories)} kcal</p>
           </div>
 
           {/* Workouts */}
@@ -155,7 +164,7 @@ export default function Dashboard() {
             <span className="text-xl mb-2 block">🏋️</span>
             <p className="text-[10px] text-text-secondary font-semibold mb-1">Workout Sessions</p>
             <p className="text-3xl font-black text-text-primary mb-0.5">{progressSummary?.workoutCount ?? 0}</p>
-            <p className="text-[10px] text-text-secondary">+2 hours from last week</p>
+            <p className="text-[10px] text-text-secondary">All time total</p>
           </div>
 
           {/* Active minutes */}
@@ -163,15 +172,15 @@ export default function Dashboard() {
             <span className="text-xl mb-2 block">⏱️</span>
             <p className="text-[10px] text-text-secondary font-semibold mb-1">Active Minutes</p>
             <p className="text-3xl font-black text-text-primary mb-0.5">{activityData.reduce((s, d) => s + d.minutes, 0)}<span className="text-base font-normal text-text-muted">min</span></p>
-            <p className="text-[10px] text-text-secondary">+0 min from last week</p>
+            <p className="text-[10px] text-text-secondary">This week</p>
           </div>
 
-          {/* Steps (placeholder) */}
+          {/* Steps (coming soon placeholder) */}
           <div className="card-blue p-5 animate-fade-up opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '300ms' }}>
             <span className="text-xl mb-2 block">👟</span>
             <p className="text-[10px] text-text-secondary font-semibold mb-1">Steps Today</p>
-            <p className="text-3xl font-black text-text-primary mb-0.5">8,450</p>
-            <p className="text-[10px] text-text-secondary">234 more than last</p>
+            <p className="text-3xl font-black text-text-primary mb-0.5">—</p>
+            <p className="text-[10px] text-text-secondary">Step tracking coming soon</p>
           </div>
         </div>
       </div>
@@ -249,11 +258,11 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex items-end justify-around h-24 gap-2">
-            {[3, 5, 4, progressSummary?.workoutCount ?? 5].map((count, i) => (
-              <div key={i} className="flex flex-col items-center gap-1 flex-1">
+            {workoutsPerWeek.map(({ week, count }) => (
+              <div key={week} className="flex flex-col items-center gap-1 flex-1">
                 <div className="w-full rounded-t-lg bg-gradient-to-b from-purple-500 to-purple-700 transition-all"
-                  style={{ height: `${(count / 6) * 100}%`, minHeight: '8px' }} />
-                <span className="text-[9px] text-text-muted font-semibold">W{i + 1}</span>
+                  style={{ height: `${Math.max((count / Math.max(Math.max(...workoutsPerWeek.map(w => w.count)), 1)) * 100, count > 0 ? 12 : 4)}%`, minHeight: '4px' }} />
+                <span className="text-[9px] text-text-muted font-semibold">{week}</span>
               </div>
             ))}
           </div>
@@ -287,30 +296,37 @@ export default function Dashboard() {
           </ResponsiveContainer>
         </div>
 
-        {/* Today's workouts (example orbs) */}
+        {/* Today's workouts */}
         <div className="card p-6 animate-fade-up opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '550ms' }}>
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-base font-bold text-text-primary">Today's Workouts</h2>
             <Link to="/workout" className="text-xs text-purple-600 font-semibold hover:underline">View all →</Link>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            {/* Orb 1 */}
-            <div className="relative h-32 flex items-center justify-center">
-              <div className="orb orb-purple h-28 w-28 animate-orb-pulse" />
-              <div className="absolute text-center">
-                <p className="text-2xl font-black text-white drop-shadow-lg">20<span className="text-sm">min</span></p>
-                <p className="text-[10px] text-white/80 font-semibold drop-shadow">HIIT Express</p>
-              </div>
+          {recentWorkouts.filter(w => w.date === localTodayISO()).length > 0 ? (
+            <div className="flex flex-col gap-3">
+              {recentWorkouts.filter(w => w.date === localTodayISO()).slice(0, 3).map((w, i) => (
+                <div key={w.id ?? i} className="flex items-center gap-3 p-3 rounded-xl bg-surface2 border border-border">
+                  <div className="h-10 w-10 rounded-xl gradient-brand flex items-center justify-center text-white text-lg flex-shrink-0">
+                    🏋️
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-text-primary truncate">{w.name}</p>
+                    <p className="text-xs text-text-secondary">
+                      {w.durationSeconds ? `${Math.round(w.durationSeconds / 60)} min` : '—'} · {w.exercises?.length ?? 0} exercises
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
-            {/* Orb 2 */}
-            <div className="relative h-32 flex items-center justify-center">
-              <div className="orb orb-yellow h-24 w-24 animate-orb-pulse" style={{ animationDelay: '1s' }} />
-              <div className="absolute text-center">
-                <p className="text-2xl font-black text-text-primary drop-shadow-lg">30<span className="text-sm">min</span></p>
-                <p className="text-[10px] text-text-secondary font-semibold drop-shadow">Yoga Stretch</p>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-8 gap-3">
+              <div className="h-16 w-16 rounded-full gradient-brand opacity-20 flex items-center justify-center text-2xl">
+                🏋️
               </div>
+              <p className="text-sm text-text-secondary text-center">No workouts today yet</p>
+              <Link to="/workout" className="btn-purple py-2 px-5 text-xs">Start a Workout</Link>
             </div>
-          </div>
+          )}
           <div className="mt-4 pt-4 border-t border-border flex items-center gap-2 text-xs">
             <span className="text-lg">🔥</span>
             <div>

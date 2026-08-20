@@ -29,7 +29,7 @@ export default function Onboarding() {
   const canProgress = {
     basics: displayName.trim().length > 0 && age && gender,
     metrics: height && weight,
-    goals: goal && (goal === 'maintain_weight' || targetWeight),
+    goals: goal && (goal === 'maintain_weight' || goal === 'general_fitness' || targetWeight),
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -40,6 +40,8 @@ export default function Onboarding() {
 
     try {
       await updateUserProfile(user.uid, {
+        uid: user.uid,
+        email: user.email ?? '',
         displayName: displayName.trim(),
         age: Number(age),
         gender,
@@ -47,7 +49,6 @@ export default function Onboarding() {
         weight: Number(weight),
         activityLevel,
         goal,
-        // Store starting weight once at onboarding for real progress tracking
         startingWeight: Number(weight),
         targetWeight: targetWeight ? Number(targetWeight) : undefined,
         onboardingComplete: true,
@@ -228,26 +229,30 @@ export default function Onboarding() {
                 <div className="flex flex-col gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-text-primary mb-2">Primary Goal</label>
-                    <div className="grid grid-cols-3 gap-3">
-                      {(['lose_weight', 'maintain_weight', 'gain_weight'] as FitnessGoal[]).map((g) => (
+                    <div className="grid grid-cols-2 gap-3">
+                      {([
+                        { value: 'lose_weight',     label: '📉 Lose Weight'   },
+                        { value: 'gain_weight',     label: '📈 Gain Weight'   },
+                        { value: 'maintain_weight', label: '✨ Maintain'       },
+                        { value: 'build_muscle',    label: '💪 Build Muscle'  },
+                        { value: 'general_fitness', label: '🏃 General Fitness' },
+                      ] as { value: FitnessGoal; label: string }[]).map((g) => (
                         <button
-                          key={g}
+                          key={g.value}
                           type="button"
-                          onClick={() => setGoal(g)}
-                          className={`py-3 px-4 rounded-xl font-semibold text-sm transition-all ${
-                            goal === g
+                          onClick={() => setGoal(g.value)}
+                          className={`py-3 px-4 rounded-xl font-semibold text-sm transition-all text-left ${
+                            goal === g.value
                               ? 'gradient-brand text-white shadow-lg border-2 border-purple-400'
                               : 'bg-surface2 text-text-secondary border-2 border-border hover:border-purple-300'
                           }`}
                         >
-                          <div className="text-center">
-                            {g === 'lose_weight' ? '📉 Lose' : g === 'maintain_weight' ? '✨ Maintain' : '📈 Gain'}
-                          </div>
+                          {g.label}
                         </button>
                       ))}
                     </div>
                   </div>
-                  {goal !== 'maintain_weight' && (
+                  {goal !== 'maintain_weight' && goal !== 'general_fitness' && (
                     <div className="animate-fade-in">
                       <label className="block text-sm font-semibold text-text-primary mb-2">Target Weight (kg)</label>
                       <input

@@ -9,14 +9,13 @@ import {
 import type { ProgressSummary } from '../services/progressService'
 import type { Measurement, Badge } from '../types/progress'
 import { MEASUREMENT_FIELDS } from '../types/progress'
-import { todayISO, formatFullDate } from '../utils/format'
+import { localTodayISO, formatFullDate, formatDate } from '../utils/format'
 import { useUnit } from '../hooks/useUnit'
 import { kgToDisplay } from '../hooks/useUnit'
 import {
   ResponsiveContainer, AreaChart, Area, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip,
 } from 'recharts'
-import { formatDate } from '../utils/format'
 
 // ── Badge card ────────────────────────────────────────────────────────────────
 function BadgeCard({ badge }: { badge: Badge }) {
@@ -52,8 +51,12 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
         <div className="card p-6 max-h-[90vh] overflow-y-auto">
           <div className="flex items-center justify-between mb-5">
             <h2 className="font-bold font-display text-text-primary">{title}</h2>
-            <button onClick={onClose}
-              className="h-7 w-7 rounded-lg hover:bg-surface2 flex items-center justify-center text-text-secondary transition-colors">✕</button>
+            <button
+              onClick={onClose}
+              aria-label={`Close ${title} dialog`}
+              className="h-7 w-7 rounded-lg hover:bg-surface2 flex items-center justify-center text-text-secondary transition-colors">
+              <span aria-hidden="true">✕</span>
+            </button>
           </div>
           {children}
         </div>
@@ -67,7 +70,7 @@ function MeasurementForm({
   uid, onSaved, onClose,
 }: { uid: string; onSaved: () => void; onClose: () => void }) {
   const { unit } = useUnit()
-  const [date, setDate] = useState(todayISO())
+  const [date, setDate] = useState(localTodayISO())
   const [values, setValues] = useState<Record<string, string>>({})
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
@@ -107,7 +110,7 @@ function MeasurementForm({
     <form onSubmit={handleSave} className="flex flex-col gap-4">
       <div>
         <label className="block text-sm font-medium text-text-primary mb-1.5">Date</label>
-        <input type="date" value={date} max={todayISO()}
+        <input type="date" value={date} max={localTodayISO()}
           onChange={(e) => setDate(e.target.value)} className="input" />
       </div>
       <div className="grid grid-cols-2 gap-3">

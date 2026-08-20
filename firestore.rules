@@ -33,9 +33,7 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isOwner(userId);
 
-      allow create: if isOwner(userId)
-        && isString(request.resource.data.uid)
-        && isString(request.resource.data.email);
+      allow create: if isOwner(userId);
 
       allow update: if isOwner(userId)
         // Weight must be a realistic number if provided

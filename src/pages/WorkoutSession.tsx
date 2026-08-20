@@ -16,6 +16,17 @@ function formatTime(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
+// localStorage key is scoped by templateId + uid so different users/templates don't collide
+function draftKey(uid: string, templateId: string) {
+  return `workout_draft_${uid}_${templateId}`
+}
+
+interface WorkoutDraft {
+  exercises: SessionExercise[]
+  startTime: number
+  activeExerciseIndex: number
+}
+
 export default function WorkoutSession() {
   const { templateId } = useParams<{ templateId: string }>()
   const { profile } = useAuth()
@@ -23,19 +34,27 @@ export default function WorkoutSession() {
   const uid = profile?.uid ?? ''
 
   const template = BUILT_IN_TEMPLATES.find(t => t.id === templateId)
+  const storageKey = uid && templateId ? draftKey(uid, templateId) : null
 
-  const [exercises, setExercises] = useState<SessionExercise[]>([])
-  const [startTime] = useState(Date.now())
+  // Restore draft from localStorage if it exists (crash/refresh recovery)
+  const savedDraft = storageKey ? (() => {
+    try { return JSON.parse(localStorage.getItem(storageKey) ?? 'null') as WorkoutDraft | null }
+    catch { return null }
+  })() : null
+
+  const [exercises, setExercises] = useState<SessionExercise[]>(savedDraft?.exercises ?? [])
+  const [startTime] = useState<number>(savedDraft?.startTime ?? Date.now())
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
-  const [activeExerciseIndex, setActiveExerciseIndex] = useState(0)
+  const [activeExerciseIndex, setActiveExerciseIndex] = useState(savedDraft?.activeExerciseIndex ?? 0)
   const [saving, setSaving] = useState(false)
   const [showCompletion, setShowCompletion] = useState(false)
   const [newPRs, setNewPRs] = useState<PersonalRecord[]>([])
 
   const { isRunning: restActive, timeLeft: restSecondsLeft, start: startRest, stop: cancelRest } = useRestTimer()
 
+  // Initialise from template only when no saved draft exists
   useEffect(() => {
-    if (!template) return
+    if (!template || savedDraft) return
     setExercises(template.exercises.map(e => ({
       exerciseId: e.exerciseId,
       exerciseName: e.exerciseName,
@@ -48,6 +67,13 @@ export default function WorkoutSession() {
       restSeconds: e.restSeconds,
     })))
   }, [template])
+
+  // Persist draft to localStorage on every set change
+  useEffect(() => {
+    if (!storageKey || exercises.length === 0) return
+    const draft: WorkoutDraft = { exercises, startTime, activeExerciseIndex }
+    localStorage.setItem(storageKey, JSON.stringify(draft))
+  }, [exercises, activeExerciseIndex])
 
   useEffect(() => {
     const interval = setInterval(() => setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000)), 1000)
@@ -95,7 +121,7 @@ export default function WorkoutSession() {
       await finishWorkout(uid, {
         templateId: template.id,
         name: template.name,
-        date: localTodayISO(),   // local timezone, not UTC
+        date: localTodayISO(),
         startedAt: startTime,
         finishedAt: Date.now(),
         durationSeconds: elapsedSeconds,
@@ -104,6 +130,9 @@ export default function WorkoutSession() {
           sum + ex.sets.filter(s => s.completed).reduce((s2, set) => s2 + set.weightKg * set.reps, 0), 0
         ),
       })
+
+      // Clear draft — workout is saved
+      if (storageKey) localStorage.removeItem(storageKey)
 
       const allPRs = await fetchPersonalRecords(uid)
       const todayStr = localTodayISO()
@@ -132,7 +161,14 @@ export default function WorkoutSession() {
       <div className="sticky top-0 z-30 bg-surface border-b border-border px-4 py-4">
         <div className="flex items-center justify-between max-w-4xl mx-auto">
           <div className="flex items-center gap-3">
-            <button onClick={() => navigate('/workout')} className="h-9 w-9 rounded-lg border border-border flex items-center justify-center hover:bg-surface2 transition-colors">
+            <button
+              onClick={() => {
+                if (storageKey) localStorage.removeItem(storageKey)
+                navigate('/workout')
+              }}
+              className="h-9 w-9 rounded-lg border border-border flex items-center justify-center hover:bg-surface2 transition-colors"
+              aria-label="Back to workouts"
+            >
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
@@ -305,7 +341,7 @@ export default function WorkoutSession() {
                 </div>
               </div>
 
-              <button onClick={() => navigate('/workout')} className="btn-purple w-full py-3">
+              <button onClick={() => { if (storageKey) localStorage.removeItem(storageKey); navigate('/workout') }} className="btn-purple w-full py-3">
                 Back to Workouts
               </button>
             </div>
