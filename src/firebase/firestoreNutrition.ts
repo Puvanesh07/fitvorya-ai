@@ -1,6 +1,6 @@
 import {
   collection, addDoc, getDocs, deleteDoc, doc, query,
-  where, serverTimestamp, Timestamp,
+  where, orderBy, serverTimestamp, Timestamp,
 } from 'firebase/firestore'
 import { db } from './config'
 import type { MealEntry, WaterEntry } from '../types/nutrition'
@@ -57,12 +57,26 @@ export async function getMealEntriesForRange(
   endDate: string,
 ): Promise<MealEntry[]> {
   const ref = collection(db, 'users', uid, 'meals')
-  // Fetch all, filter client-side — avoids range + index requirement
-  const snap = await getDocs(ref)
-  return snap.docs
-    .map(d => ({ id: d.id, ...d.data() } as MealEntry))
-    .filter(e => e.date >= startDate && e.date <= endDate)
-    .sort((a, b) => a.date.localeCompare(b.date))
+  // Use Firestore range query — single-field range on 'date' needs no composite index
+  const q = query(
+    ref,
+    where('date', '>=', startDate),
+    where('date', '<=', endDate),
+    orderBy('date', 'asc'),
+  )
+  const snap = await getDocs(q)
+  return snap.docs.map(d => {
+    const data = d.data()
+    return {
+      id: d.id,
+      foodItem: data.foodItem,
+      grams: data.grams,
+      meal: data.meal,
+      date: data.date,
+      loggedAt: data.loggedAt instanceof Timestamp
+        ? data.loggedAt.toDate().toISOString() : '',
+    } as MealEntry
+  })
 }
 
 export async function deleteMealEntry(uid: string, entryId: string): Promise<void> {

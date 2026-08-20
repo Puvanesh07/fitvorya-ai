@@ -1,67 +1,58 @@
+import { getApp } from 'firebase/app'
+import { getFunctions, httpsCallable } from 'firebase/functions'
 import type { FoodItem, MealEntry, MealType, WaterEntry } from '../types/nutrition'
 import {
   addMealEntry, getMealEntriesForDate, getMealEntriesForRange,
   deleteMealEntry, addWaterEntry, getWaterEntriesForDate, deleteWaterEntry,
 } from '../firebase/firestoreNutrition'
 
-// ── USDA FoodData Central ─────────────────────────────────────────────────────
-const USDA_KEY  = import.meta.env.VITE_USDA_API_KEY ?? 'DEMO_KEY'
-const USDA_BASE = 'https://api.nal.usda.gov/fdc/v1'
+// ── Food search via Cloud Function ───────────────────────────────────────────
+// The USDA API key lives in Cloud Functions secrets — never in client JS.
+// Falls back to local FALLBACK_FOODS on network error (offline / cold start).
 
-interface USDAFood {
-  fdcId: number
-  description: string
-  brandOwner?: string
-  foodNutrients: Array<{ nutrientId: number; value: number }>
-}
-
-function parseUSDA(f: USDAFood): FoodItem {
-  const get = (id: number) => f.foodNutrients.find(n => n.nutrientId === id)?.value ?? 0
-  return {
-    fdcId:    String(f.fdcId),
-    name:     f.description,
-    brand:    f.brandOwner,
-    calories: Math.round(get(1008)),
-    protein:  Math.round(get(1003) * 10) / 10,
-    carbs:    Math.round(get(1005) * 10) / 10,
-    fat:      Math.round(get(1004) * 10) / 10,
-    fiber:    Math.round(get(1079) * 10) / 10,
-  }
+interface SearchFoodResult {
+  foods: Array<{
+    fdcId: string
+    name: string
+    brand?: string
+    calories: number
+    protein: number
+    carbs: number
+    fat: number
+    fiber: number
+    servingSize?: number
+    servingUnit?: string
+  }>
+  source: string
 }
 
 export async function searchFood(query: string): Promise<FoodItem[]> {
   const trimmed = query.trim()
   if (trimmed.length < 2) return FALLBACK_FOODS.slice(0, 10)
 
-  // Local first — includes full Indian food list
+  // Local match first — instant, no network
   const localMatches = FALLBACK_FOODS.filter(f =>
     f.name.toLowerCase().includes(trimmed.toLowerCase()),
   )
 
   try {
-    // Correct USDA URL — Foundation, SR Legacy, and Branded as separate params
-    const params = new URLSearchParams({
-      api_key: USDA_KEY,
-      query: trimmed,
-      pageSize: '15',
-    })
-    const url = `${USDA_BASE}/foods/search?${params.toString()}&dataType=Foundation&dataType=SR%20Legacy&dataType=Branded`
-    const res = await fetch(url)
-    if (!res.ok) throw new Error(`USDA ${res.status}`)
-    const data = await res.json() as { foods?: USDAFood[] }
-    const apiResults = (data.foods ?? []).map(parseUSDA).filter(f => f.calories > 0)
+    const fn = getFunctions(getApp(), 'us-central1')
+    const callable = httpsCallable<{ query: string }, SearchFoodResult>(fn, 'searchFood')
+    const result = await callable({ query: trimmed })
+    const apiItems = result.data.foods as FoodItem[]
 
-    // Merge local + API, deduplicated by name
-    const seen = new Set(localMatches.map(f => f.name.toLowerCase()))
+    // Merge: local results first, then Cloud Function results (deduped by fdcId)
+    const seen = new Set(localMatches.map(f => f.fdcId))
     const merged = [...localMatches]
-    for (const f of apiResults) {
-      if (!seen.has(f.name.toLowerCase())) {
+    for (const f of apiItems) {
+      if (!seen.has(f.fdcId)) {
         merged.push(f)
-        seen.add(f.name.toLowerCase())
+        seen.add(f.fdcId)
       }
     }
     return merged.slice(0, 20)
   } catch {
+    // Network error, cold start, or function not deployed — fall back to local
     return localMatches.length > 0 ? localMatches : FALLBACK_FOODS.slice(0, 10)
   }
 }

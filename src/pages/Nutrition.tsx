@@ -9,7 +9,7 @@ import {
 } from '../services/nutritionService'
 import type { FoodItem, MealEntry, MealType, WaterEntry } from '../types/nutrition'
 import { MEAL_LABELS, MEAL_ICONS, scaleMacros, sumNutrition, sumWater } from '../types/nutrition'
-import { todayISO, formatFullDate } from '../utils/format'
+import { localTodayISO, formatFullDate } from '../utils/format'
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
 
 const WATER_PRESETS = [250, 500, 750, 1000]
@@ -20,7 +20,7 @@ export default function Nutrition() {
   const uid = profile?.uid ?? ''
   const metrics = profile ? computeMetrics(profile) : null
 
-  const [date, setDate] = useState(todayISO())
+  const [date, setDate] = useState(localTodayISO())
   const [meals, setMeals] = useState<MealEntry[]>([])
   const [water, setWater] = useState<WaterEntry[]>([])
   const [loading, setLoading] = useState(true)
@@ -91,7 +91,7 @@ export default function Nutrition() {
           <input
             type="date"
             value={date}
-            max={todayISO()}
+            max={localTodayISO()}
             onChange={(e) => setDate(e.target.value)}
             className="input py-2 text-sm"
           />
@@ -314,8 +314,8 @@ function AddFoodModal({
         <div className="card p-6 max-h-[85vh] overflow-y-auto">
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-lg font-bold text-text-primary">Add Food to {MEAL_LABELS[meal]}</h2>
-            <button onClick={onClose} className="h-8 w-8 rounded-lg hover:bg-surface2 flex items-center justify-center text-text-secondary transition-colors">
-              ✕
+            <button onClick={onClose} aria-label="Close food search" className="h-8 w-8 rounded-lg hover:bg-surface2 flex items-center justify-center text-text-secondary transition-colors">
+              <span aria-hidden="true">✕</span>
             </button>
           </div>
 
@@ -331,16 +331,21 @@ function AddFoodModal({
 
               <div className="flex flex-col gap-2 max-h-96 overflow-y-auto">
                 {results.map(f => (
-                  <button key={f.fdcId} onClick={() => setSelected(f)}
+                  <button key={f.fdcId} onClick={() => {
+                      setSelected(f)
+                      // Pre-fill with typical serving size if defined, else 100g
+                      setGrams(String(f.servingSize ?? 100))
+                    }}
                     className="flex items-center justify-between p-3 rounded-xl border border-border hover:border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/10 transition-all text-left">
                     <div className="flex-1">
                       <p className="text-sm font-semibold text-text-primary">{f.name}</p>
                       {f.brand && <p className="text-xs text-text-muted">{f.brand}</p>}
                       <p className="text-xs text-text-secondary mt-1">
                         {f.calories} cal · P: {f.protein}g C: {f.carbs}g F: {f.fat}g
+                        {f.servingUnit && <span className="ml-1 text-text-muted">· per 100g</span>}
                       </p>
                     </div>
-                    <span className="text-purple-600 text-xl">→</span>
+                    <span className="text-purple-600 text-xl" aria-hidden="true">→</span>
                   </button>
                 ))}
                 {results.length === 0 && !searching && (
@@ -364,9 +369,32 @@ function AddFoodModal({
               </div>
 
               <div className="mb-4">
-                <label className="block text-sm font-semibold text-text-primary mb-2">Serving Size (grams)</label>
-                <input type="number" value={grams} onChange={(e) => setGrams(e.target.value)}
-                  className="input" min={1} step={1} />
+                <label className="block text-sm font-semibold text-text-primary mb-2">
+                  Serving Size (grams)
+                </label>
+                {selected.servingSize && selected.servingUnit && (
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xs text-text-secondary">
+                      Typical serving: <strong>{selected.servingUnit}</strong> ≈ {selected.servingSize}g
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setGrams(String(selected.servingSize))}
+                      className="text-xs font-semibold text-purple-600 border border-purple-300 rounded-lg px-2 py-0.5 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
+                    >
+                      Use
+                    </button>
+                  </div>
+                )}
+                <input
+                  type="number"
+                  value={grams}
+                  onChange={(e) => setGrams(e.target.value)}
+                  className="input"
+                  min={1}
+                  step={1}
+                  aria-label="Serving size in grams"
+                />
               </div>
 
               {previewMacros && (

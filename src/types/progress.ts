@@ -118,7 +118,10 @@ export function computeBadges(data: {
   streak: number
   longestStreak: number
 }): Badge[] {
-  const { workoutCount, weightEntryCount, mealEntryCount, prCount, measurementCount, streak } = data
+  const { workoutCount, weightEntryCount, mealEntryCount, prCount, measurementCount, streak, longestStreak } = data
+  // Streak badges use longestStreak so they are never revoked when the
+  // current streak resets — a user who once hit 30 days keeps the badge.
+  const streakBest = Math.max(streak, longestStreak)
 
   return ALL_BADGES.map((b) => {
     let earned = false
@@ -129,12 +132,12 @@ export function computeBadges(data: {
       case 'measurement_first': earned = measurementCount >= 1; break
       case 'pr_first':          earned = prCount >= 1;          break
       case 'pr_5':              earned = prCount >= 5;          break
-      case 'streak_3':          earned = streak >= 3;           break
-      case 'streak_7':          earned = streak >= 7;           break
-      case 'streak_14':         earned = streak >= 14;          break
-      case 'streak_30':         earned = streak >= 30;          break
-      case 'streak_60':         earned = streak >= 60;          break
-      case 'streak_100':        earned = streak >= 100;         break
+      case 'streak_3':          earned = streakBest >= 3;       break
+      case 'streak_7':          earned = streakBest >= 7;       break
+      case 'streak_14':         earned = streakBest >= 14;      break
+      case 'streak_30':         earned = streakBest >= 30;      break
+      case 'streak_60':         earned = streakBest >= 60;      break
+      case 'streak_100':        earned = streakBest >= 100;     break
       case 'workouts_5':        earned = workoutCount >= 5;     break
       case 'workouts_10':       earned = workoutCount >= 10;    break
       case 'workouts_25':       earned = workoutCount >= 25;    break

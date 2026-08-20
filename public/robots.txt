@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+
+# Don't index authenticated app routes — only the landing/login pages need SEO
+Disallow: /dashboard
+Disallow: /workout
+Disallow: /nutrition
+Disallow: /weight
+Disallow: /progress
+Disallow: /profile
+Disallow: /onboarding
+
+Sitemap: https://fitvoryaai.web.app/sitemap.xml

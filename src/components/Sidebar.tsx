@@ -34,11 +34,19 @@ export default function Sidebar() {
       {/* Desktop sidebar */}
       <aside
         className={`sidebar card-shadow ${expanded ? 'expanded' : ''}`}
+        aria-label="Main navigation"
         onMouseEnter={() => setExpanded(true)}
         onMouseLeave={() => setExpanded(false)}
       >
         {/* Logo */}
-        <div className="sidebar-link mb-2 cursor-pointer" onClick={() => navigate('/dashboard')}>
+        <div
+          className="sidebar-link mb-2 cursor-pointer"
+          onClick={() => navigate('/dashboard')}
+          role="button"
+          aria-label="Go to dashboard"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === 'Enter' && navigate('/dashboard')}
+        >
           <div className="sidebar-icon">
             <div className="h-7 w-7 rounded-xl gradient-brand flex items-center justify-center text-white font-black text-sm flex-shrink-0">
               F
@@ -48,31 +56,44 @@ export default function Sidebar() {
         </div>
 
         {/* Divider */}
-        <div className="w-8 h-px bg-border mb-3 mx-auto" />
+        <div className="w-8 h-px bg-border mb-3 mx-auto" role="separator" />
 
         {/* Nav links */}
-        <nav className="flex flex-col gap-0.5 flex-1 w-full">
+        <nav className="flex flex-col gap-0.5 flex-1 w-full" aria-label="App pages">
           {NAV.map(n => (
-            <NavLink key={n.to} to={n.to} className={linkClass} title={expanded ? undefined : n.label}>
-              <span className="sidebar-icon">{n.icon}</span>
+            <NavLink
+              key={n.to}
+              to={n.to}
+              className={linkClass}
+              aria-label={n.label}
+              title={expanded ? undefined : n.label}
+            >
+              <span className="sidebar-icon" aria-hidden="true">{n.icon}</span>
               {expanded && <span>{n.label}</span>}
             </NavLink>
           ))}
         </nav>
 
-        {/* Bottom */}
+        {/* Bottom actions */}
         <div className="flex flex-col gap-2 w-full mt-2">
           <div className="sidebar-link justify-center">
             <ThemeToggle />
             {expanded && <span className="text-xs text-text-muted">Theme</span>}
           </div>
-          <button onClick={handleLogout} className="sidebar-link text-left">
-            <span className="sidebar-icon">🚪</span>
+          <button
+            onClick={handleLogout}
+            className="sidebar-link text-left"
+            aria-label="Sign out"
+          >
+            <span className="sidebar-icon" aria-hidden="true">🚪</span>
             {expanded && <span>Sign out</span>}
           </button>
           {/* Avatar */}
-          <div className="sidebar-link items-center">
-            <div className="h-7 w-7 rounded-full gradient-brand flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+          <div className="sidebar-link items-center" aria-label={`Signed in as ${profile?.displayName ?? user?.email ?? 'User'}`}>
+            <div
+              className="h-7 w-7 rounded-full gradient-brand flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+              aria-hidden="true"
+            >
               {initial}
             </div>
             {expanded && (
@@ -86,14 +107,15 @@ export default function Sidebar() {
       </aside>
 
       {/* Mobile bottom nav */}
-      <nav className="mobile-nav">
+      <nav className="mobile-nav" aria-label="Mobile navigation">
         {NAV.map(n => (
           <NavLink
             key={n.to}
             to={n.to}
             className={({ isActive }) => `mobile-nav-btn ${isActive ? 'active' : ''}`}
+            aria-label={n.label}
           >
-            <span className="mnb-icon">{n.icon}</span>
+            <span className="mnb-icon" aria-hidden="true">{n.icon}</span>
             <span>{n.label}</span>
           </NavLink>
         ))}
