@@ -1,26 +1,51 @@
-import { GoogleGenAI } from '@google/genai'
-
 // ── Shared browser Gemini client ──────────────────────────────────────────────
 // Uses VITE_GEMINI_API_KEY — baked into the bundle at build time.
 // Restrict this key to your domain in Google AI Studio for security.
 
 export interface ChatMessage { role: 'user' | 'assistant'; content: string }
 
-function getClient(): GoogleGenAI {
+// ── Direct REST call — avoids SDK URL construction quirks in browser builds ───
+async function callGeminiREST(
+  systemInstruction: string,
+  history: ChatMessage[],
+  message: string,
+  maxOutputTokens = 700,
+): Promise<string> {
   const key = import.meta.env.VITE_GEMINI_API_KEY as string | undefined
-  if (!key) throw new Error('VITE_GEMINI_API_KEY is not set')
-  return new GoogleGenAI({ apiKey: key })
-}
+  if (!key) throw new Error('VITE_GEMINI_API_KEY is not set. Add it to your .env file.')
 
-// ── Build Gemini contents array from history + current message ────────────────
-function buildContents(history: ChatMessage[], message: string) {
-  return [
+  const contents = [
     ...history.slice(-6).map(m => ({
-      role: m.role === 'assistant' ? 'model' : 'user' as const,
+      role: m.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: m.content }],
     })),
-    { role: 'user' as const, parts: [{ text: message }] },
+    { role: 'user', parts: [{ text: message }] },
   ]
+
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: systemInstruction }] },
+        contents,
+        generationConfig: { maxOutputTokens, temperature: 0.7 },
+      }),
+    }
+  )
+
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(`Gemini API error ${res.status}: ${err}`)
+  }
+
+  const data = await res.json() as {
+    candidates?: { content?: { parts?: { text?: string }[] } }[]
+  }
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+  if (!text) throw new Error('Empty response from Gemini')
+  return text
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -126,7 +151,7 @@ export async function askPregnancyAI(
   const rule = pregnancyRuleResponse(message, ctx)
   if (rule) return rule
 
-  // 3. Gemini
+  // 3. Gemini via direct REST
   const systemInstruction = `You are FitTracker AI Pregnancy Nutrition Coach — a knowledgeable, warm, and safety-conscious nutrition assistant for pregnant women.
 
 USER CONTEXT:
@@ -148,15 +173,7 @@ STRICT RULES:
 
 FORMAT: Use **bold** for headings, bullet points with •, emoji for readability.`
 
-  const ai = getClient()
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: buildContents(history, message),
-    config: { systemInstruction, maxOutputTokens: 700, temperature: 0.7 },
-  })
-  const text = response.text ?? ''
-  if (!text) throw new Error('empty_response')
-  return text
+  return callGeminiREST(systemInstruction, history, message, 700)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -295,15 +312,7 @@ STRICT SAFETY RULES:
 
 FORMAT: Use **bold**, bullet points with •, emoji. End with: "_ℹ️ General information only. Consult your paediatrician._"`
 
-  const ai = getClient()
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: buildContents(history, message),
-    config: { systemInstruction, maxOutputTokens: 700, temperature: 0.7 },
-  })
-  const text = response.text ?? ''
-  if (!text) throw new Error('empty_response')
-  return text
+  return callGeminiREST(systemInstruction, history, message, 700)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -449,13 +458,5 @@ STRICT RULES:
 
 End every response with: "_ℹ️ General nutrition information only. Consult your healthcare provider for personalised advice._"`
 
-  const ai = getClient()
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: buildContents(history, message),
-    config: { systemInstruction, maxOutputTokens: 800, temperature: 0.7 },
-  })
-  const text = response.text ?? ''
-  if (!text) throw new Error('empty_response')
-  return text
+  return callGeminiREST(systemInstruction, history, message, 800)
 }
