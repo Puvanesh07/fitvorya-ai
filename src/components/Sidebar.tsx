@@ -6,6 +6,7 @@ const NAV = [
   { to: '/dashboard', icon: '⊞',  label: 'Dashboard' },
   { to: '/workout',   icon: '🏋️', label: 'Workout'   },
   { to: '/nutrition', icon: '🥗',  label: 'Nutrition' },
+  { to: '/pregnancy', icon: '🤰',  label: 'Pregnancy' },
   { to: '/weight',    icon: '⚖️',  label: 'Weight'    },
   { to: '/progress',  icon: '📈',  label: 'Progress'  },
   { to: '/profile',   icon: '👤',  label: 'Profile'   },
