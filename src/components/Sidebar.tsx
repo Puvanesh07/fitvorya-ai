@@ -3,14 +3,15 @@ import { logout } from '../firebase/auth'
 import { useAuth } from '../context/AuthContext'
 
 const NAV = [
-  { to: '/dashboard', icon: '⊞',  label: 'Dashboard' },
-  { to: '/workout',   icon: '🏋️', label: 'Workout'   },
-  { to: '/nutrition', icon: '🥗',  label: 'Nutrition' },
-  { to: '/pregnancy', icon: '🤰',  label: 'Pregnancy' },
-  { to: '/baby',      icon: '👶',  label: 'Baby'      },
-  { to: '/weight',    icon: '⚖️',  label: 'Weight'    },
-  { to: '/progress',  icon: '📈',  label: 'Progress'  },
-  { to: '/profile',   icon: '👤',  label: 'Profile'   },
+  { to: '/dashboard', icon: '⊞',    label: 'Dashboard' },
+  { to: '/workout',   icon: '🏋️',  label: 'Workout'   },
+  { to: '/nutrition', icon: '🥗',   label: 'Nutrition' },
+  { to: '/pregnancy', icon: '🤰',   label: 'Pregnancy' },
+  { to: '/baby',      icon: '👶',   label: 'Baby'      },
+  { to: '/family',    icon: '👨‍👩‍👧', label: 'Family'    },
+  { to: '/weight',    icon: '⚖️',   label: 'Weight'    },
+  { to: '/progress',  icon: '📈',   label: 'Progress'  },
+  { to: '/profile',   icon: '👤',   label: 'Profile'   },
 ]
 
 interface SidebarProps {

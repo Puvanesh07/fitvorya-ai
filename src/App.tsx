@@ -17,6 +17,7 @@ import Progress       from './pages/Progress'
 import Nutrition      from './pages/Nutrition'
 import Pregnancy      from './pages/Pregnancy'
 import Baby           from './pages/Baby'
+import Family         from './pages/Family'
 
 // ── Route guards ──────────────────────────────────────────────────────────────
 
@@ -85,6 +86,9 @@ function AppRoutes() {
       } />
       <Route path="/baby" element={
         <OnboardedRoute><AppLayout><Baby /></AppLayout></OnboardedRoute>
+      } />
+      <Route path="/family" element={
+        <OnboardedRoute><AppLayout><Family /></AppLayout></OnboardedRoute>
       } />
       <Route path="/workout" element={
         <OnboardedRoute><AppLayout><Workout /></AppLayout></OnboardedRoute>
