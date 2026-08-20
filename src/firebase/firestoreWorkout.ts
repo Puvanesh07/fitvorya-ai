@@ -1,9 +1,10 @@
 import {
   collection, addDoc, getDoc, getDocs, doc,
-  setDoc, deleteDoc, serverTimestamp,
+  setDoc, deleteDoc, serverTimestamp, query, orderBy, limit, where,
 } from 'firebase/firestore'
 import { db } from './config'
 import type { WorkoutSession, PersonalRecord } from '../types/workout'
+import { localTodayISO, dateToISO } from '../utils/format'
 
 // ── Sessions ──────────────────────────────────────────────────────────────────
 
@@ -24,12 +25,14 @@ export async function saveWorkoutSession(
 
 export async function getWorkoutSessions(uid: string): Promise<WorkoutSession[]> {
   const ref = collection(db, 'users', uid, 'workouts')
-  // No orderBy — fetch all, sort client-side (avoids composite index)
-  const snap = await getDocs(ref)
-  const sessions = snap.docs.map(d => ({ id: d.id, ...d.data() } as WorkoutSession))
-  return sessions
-    .sort((a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0))
-    .slice(0, 50)
+  // Order by startedAt desc, cap at 50 — avoids full collection scan
+  const q = query(ref, orderBy('startedAt', 'desc'), limit(50))
+  const snap = await getDocs(q)
+  return snap.docs.map(d => {
+    const data = d.data()
+    const dateStr = typeof data.date === 'string' ? data.date : localTodayISO()
+    return { id: d.id, ...data, date: dateStr } as WorkoutSession
+  })
 }
 
 export async function getWorkoutSession(uid: string, sessionId: string): Promise<WorkoutSession | null> {
@@ -45,15 +48,16 @@ export async function deleteWorkoutSession(uid: string, sessionId: string): Prom
 
 export async function getSessionsForHeatmap(uid: string): Promise<{ date: string; count: number }[]> {
   const ref = collection(db, 'users', uid, 'workouts')
-  // Fetch all, filter client-side (avoids range query index)
-  const snap = await getDocs(ref)
+  // Use local timezone for cutoff, and push filtering into the query
   const cutoff = new Date()
   cutoff.setFullYear(cutoff.getFullYear() - 1)
-  const cutoffStr = cutoff.toISOString().split('T')[0]
+  const cutoffStr = dateToISO(cutoff) // local-timezone safe
+  const q = query(ref, where('date', '>=', cutoffStr))
+  const snap = await getDocs(q)
   const map = new Map<string, number>()
   snap.docs.forEach(d => {
     const date = (d.data() as WorkoutSession).date
-    if (date && date >= cutoffStr) {
+    if (typeof date === 'string' && date >= cutoffStr) {
       map.set(date, (map.get(date) ?? 0) + 1)
     }
   })

@@ -27,6 +27,8 @@ export interface UserProfile {
   weight: number
   /** Target weight in kilograms (always stored as kg) */
   targetWeight: number
+  /** Starting weight captured at onboarding — used for real progress calculation */
+  startingWeight?: number
   goal: FitnessGoal
   activityLevel: ActivityLevel
   /** Display preference — does not affect stored values */

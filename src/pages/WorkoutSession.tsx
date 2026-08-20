@@ -6,6 +6,7 @@ import { BUILT_IN_TEMPLATES } from '../data/templates'
 import { finishWorkout, fetchPersonalRecords } from '../services/workoutService'
 import type { SessionExercise, SetEntry, PersonalRecord } from '../types/workout'
 import { useRestTimer } from '../hooks/useRestTimer'
+import { localTodayISO } from '../utils/format'
 
 function formatTime(seconds: number): string {
   const h = Math.floor(seconds / 3600)
@@ -94,7 +95,7 @@ export default function WorkoutSession() {
       await finishWorkout(uid, {
         templateId: template.id,
         name: template.name,
-        date: new Date().toISOString().split('T')[0],
+        date: localTodayISO(),   // local timezone, not UTC
         startedAt: startTime,
         finishedAt: Date.now(),
         durationSeconds: elapsedSeconds,
@@ -105,9 +106,11 @@ export default function WorkoutSession() {
       })
 
       const allPRs = await fetchPersonalRecords(uid)
+      const todayStr = localTodayISO()
       const todayPRs = allPRs.filter(pr => {
-        const prDate = new Date(pr.achievedAt).toISOString().split('T')[0]
-        return prDate === new Date().toISOString().split('T')[0]
+        const prDate = new Date(pr.achievedAt)
+        const prDateStr = `${prDate.getFullYear()}-${String(prDate.getMonth() + 1).padStart(2, '0')}-${String(prDate.getDate()).padStart(2, '0')}`
+        return prDateStr === todayStr
       })
       
       if (todayPRs.length > 0) setNewPRs(todayPRs)

@@ -40,22 +40,31 @@ export function computeMetrics(profile: UserProfile): FitnessMetrics {
   const macros = calculateMacros(targetCalories, profile.weight)
   const stepsGoal = STEPS_BY_GOAL[profile.goal]
 
-  // Progress toward target weight
-  // For lose/maintain: how much of the gap they've closed from starting weight
-  // We use the profile.weight vs targetWeight delta relative to a reasonable starting range.
-  // Simple approach: clamp 0–100 based on direction of goal.
+  // Real progress toward target weight using startingWeight stored at onboarding
   let progressPercent = 0
-  const diff = profile.weight - profile.targetWeight
+  const current = profile.weight
+  const target  = profile.targetWeight
+  const start   = profile.startingWeight ?? current // fall back to current if not stored
+
+  const diff = current - target
+
   if (Math.abs(diff) < 0.1) {
+    // Already at goal
     progressPercent = 100
   } else if (profile.goal === 'lose_weight') {
-    // Assume started at weight recorded in profile; show % progress if already made some
-    // Since we don't store starting weight separately yet, we show based on BMI moving toward normal
-    progressPercent = Math.min(100, Math.max(0, Math.round((1 - Math.abs(diff) / (profile.weight + Math.abs(diff))) * 100)))
+    // Progress = how much of (start→target gap) has been closed
+    const totalGap = start - target
+    if (totalGap > 0) {
+      progressPercent = Math.min(100, Math.max(0, Math.round(((start - current) / totalGap) * 100)))
+    }
   } else if (profile.goal === 'gain_weight' || profile.goal === 'build_muscle') {
-    progressPercent = Math.min(100, Math.max(0, Math.round((1 - Math.abs(diff) / (profile.targetWeight + Math.abs(diff))) * 100)))
+    const totalGap = target - start
+    if (totalGap > 0) {
+      progressPercent = Math.min(100, Math.max(0, Math.round(((current - start) / totalGap) * 100)))
+    }
   } else {
-    progressPercent = diff === 0 ? 100 : 50
+    // maintain / general_fitness — show 100 if within 2kg of target, else 50
+    progressPercent = Math.abs(diff) <= 2 ? 100 : 50
   }
 
   return {

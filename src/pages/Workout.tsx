@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import LoadingSpinner from '../components/LoadingSpinner'
+import PageLoader from '../components/PageLoader'
 import { fetchWorkoutHistory, fetchHeatmap } from '../services/workoutService'
 import type { WorkoutSession } from '../types/workout'
 import { CATEGORY_LABELS } from '../types/workout'
@@ -33,6 +33,10 @@ export default function Workout() {
     }).finally(() => setLoading(false))
   }, [profile])
 
+  if (loading) {
+    return <PageLoader />
+  }
+
   return (
     <div className="animate-fade-in">
       {/* Header */}
@@ -43,15 +47,11 @@ export default function Workout() {
         </div>
       </div>
 
-      {loading ? (
-        <div className="flex justify-center py-24"><LoadingSpinner size="lg" /></div>
-      ) : (
-        <>
-          {/* Heatmap card */}
-          <div className="card p-6 mb-6">
-            <h2 className="text-base font-bold text-text-primary mb-4">Activity Heatmap</h2>
-            <WorkoutHeatmap data={heatmap} />
-          </div>
+      {/* Heatmap card */}
+      <div className="card p-6 mb-6">
+        <h2 className="text-base font-bold text-text-primary mb-4">Activity Heatmap</h2>
+        <WorkoutHeatmap data={heatmap} />
+      </div>
 
           {/* Tabs */}
           <div className="flex gap-1 p-1 bg-surface2 rounded-xl mb-5 w-fit">
@@ -136,8 +136,6 @@ export default function Workout() {
               )}
             </div>
           )}
-        </>
-      )}
     </div>
   )
 }
@@ -150,7 +148,8 @@ function WorkoutHeatmap({ data }: { data: { date: string; count: number }[] }) {
   for (let i = 111; i >= 0; i--) {
     const d = new Date(today)
     d.setDate(d.getDate() - i)
-    const iso = d.toISOString().split('T')[0]
+    // Use local-timezone date string so heatmap cells match stored workout dates
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     days.push({ date: iso, count: map.get(iso) ?? 0 })
   }
   const weeks: typeof days[] = []

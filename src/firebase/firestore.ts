@@ -9,12 +9,14 @@ import {
   deleteDoc,
   query,
   orderBy,
+  limit,
   serverTimestamp,
   Timestamp,
 } from 'firebase/firestore'
 import { db } from './config'
 import type { UserProfile } from '../types/user'
 import type { WeightEntry } from '../types/weight'
+import { localTodayISO } from '../utils/format'
 
 // ─── User Profile ─────────────────────────────────────────────────────────────
 
@@ -42,30 +44,16 @@ export async function updateUserProfile(
   updates: Partial<UserProfile>,
 ): Promise<void> {
   const ref = doc(db, 'users', uid)
-  
-  // Check if document exists, create if missing
-  const snap = await getDoc(ref)
-  if (!snap.exists()) {
-    // Create document with updates
-    await setDoc(ref, {
-      ...stripUndefined(updates),
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    })
-    return
-  }
-  
-  // Strip undefined fields to prevent Firestore error
-  const cleanUpdates = stripUndefined(updates)
-  await updateDoc(ref, {
-    ...cleanUpdates,
+  // setDoc with merge:true creates if missing AND is atomic — no race condition
+  await setDoc(ref, {
+    ...stripUndefined(updates as Record<string, unknown>),
     updatedAt: serverTimestamp(),
-  })
+  }, { merge: true })
 }
 
 /** Remove undefined fields from an object to prevent Firestore errors */
-function stripUndefined<T extends Record<string, any>>(obj: T): Partial<T> {
-  const clean: any = {}
+function stripUndefined<T extends Record<string, unknown>>(obj: T): Partial<T> {
+  const clean: Partial<T> = {}
   for (const key in obj) {
     if (obj[key] !== undefined) {
       clean[key] = obj[key]
@@ -90,18 +78,30 @@ export async function addWeightEntry(
 
 export async function getWeightEntries(uid: string): Promise<WeightEntry[]> {
   const ref = collection(db, 'users', uid, 'weights')
-  const q = query(ref, orderBy('date', 'asc'))
+  // Cap at 365 entries (1 year daily) — avoids unbounded reads for long-term users
+  const q = query(ref, orderBy('date', 'desc'), limit(365))
   const snap = await getDocs(q)
   return snap.docs.map((d) => {
     const data = d.data()
+    let dateStr = ''
+    if (data.date instanceof Timestamp) {
+      // Legacy: some old entries may have been stored as Timestamp — convert using local time
+      const ts = data.date.toDate()
+      dateStr = `${ts.getFullYear()}-${String(ts.getMonth() + 1).padStart(2, '0')}-${String(ts.getDate()).padStart(2, '0')}`
+    } else if (typeof data.date === 'string') {
+      dateStr = data.date
+    } else {
+      dateStr = localTodayISO()
+    }
     return {
       id: d.id,
       weight: data.weight,
-      date: data.date instanceof Timestamp ? data.date.toDate().toISOString().split('T')[0] : data.date,
+      date: dateStr,
       note: data.note ?? '',
       createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : '',
     } as WeightEntry
   })
+  // Already ordered desc by Firestore, so most recent is first — no client-sort needed
 }
 
 export async function updateWeightEntry(

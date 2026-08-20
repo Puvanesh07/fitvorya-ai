@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import type { ReactNode } from 'react'
 import { useAuth } from '../context/AuthContext'
 import LoadingSpinner from '../components/LoadingSpinner'
+import PageLoader from '../components/PageLoader'
 import {
   saveMeasurement, fetchMeasurements, removeMeasurement, fetchProgressSummary,
 } from '../services/progressService'
@@ -167,6 +168,8 @@ export default function Progress() {
 
   useEffect(() => { load() }, [uid])
 
+  if (loading) return <PageLoader />
+
   // Chart data — weight trend from measurements
   const weightChartData = [...measurements]
     .filter(m => m.weight != null)
@@ -206,11 +209,7 @@ export default function Progress() {
         </button>
       </div>
 
-      {loading ? (
-        <div className="flex justify-center py-24"><LoadingSpinner size="lg" /></div>
-      ) : (
-        <>
-          {/* Streak + summary strip */}
+      {/* Streak + summary strip */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
             {/* Streak card */}
             <div className="card card-hover p-5 col-span-2 sm:col-span-1 flex flex-col items-center gap-2 animate-fade-up opacity-0"
@@ -406,10 +405,7 @@ export default function Progress() {
               )}
             </div>
           )}
-        </>
-      )}
 
-      {/* Mobile bottom nav */}
       {showAdd && (
         <Modal title="📏 Log Measurements" onClose={() => setShowAdd(false)}>
           <MeasurementForm uid={uid} onSaved={load} onClose={() => setShowAdd(false)} />

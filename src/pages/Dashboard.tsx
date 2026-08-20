@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import LoadingSpinner from '../components/LoadingSpinner'
+import PageLoader from '../components/PageLoader'
 import { computeMetrics } from '../utils/calculations'
 import type { WeightEntry, MealEntry, WaterEntry } from '../types'
 import type { WorkoutSession } from '../types/workout'
@@ -10,7 +10,7 @@ import { fetchMealsForDate, fetchWaterForDate } from '../services/nutritionServi
 import { fetchWorkoutHistory } from '../services/workoutService'
 import { fetchProgressSummary } from '../services/progressService'
 import type { ProgressSummary } from '../services/progressService'
-import { formatFullDate, todayISO } from '../utils/format'
+import { formatFullDate, localTodayISO, dateToISO } from '../utils/format'
 import type { FitnessMetrics } from '../utils/calculations'
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line } from 'recharts'
 
@@ -28,7 +28,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!profile) return
-    const today = todayISO()
+    const today = localTodayISO()
     Promise.all([
       fetchWeightHistory(profile.uid),
       fetchMealsForDate(profile.uid, today),
@@ -45,12 +45,7 @@ export default function Dashboard() {
   }, [profile])
 
   if (loading || !metrics || !profile) {
-    return (
-      <div className="flex flex-col items-center justify-center py-32 gap-4">
-        <LoadingSpinner size="lg" />
-        <p className="text-sm text-text-secondary">Loading your dashboard…</p>
-      </div>
-    )
+    return <PageLoader />
   }
 
   // Today's nutrition
@@ -67,12 +62,12 @@ export default function Dashboard() {
   const waterTotal = water.reduce((sum, w) => sum + w.amount, 0)
   const waterGoal = 2500 // Default — will add waterGoal to profile later
 
-  // Activity progress (last 7 days)
-  const today = new Date()
+  // Activity progress (last 7 days) — use local timezone to match stored dates
+  const todayDate = new Date()
   const activityData = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(today)
+    const d = new Date(todayDate)
     d.setDate(d.getDate() - (6 - i))
-    const dateStr = d.toISOString().split('T')[0]
+    const dateStr = dateToISO(d) // local-timezone safe
     const dayLabel = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()]
     const workoutsOnDay = recentWorkouts.filter(w => w.date === dateStr)
     const minutes = workoutsOnDay.reduce((sum, w) => {
@@ -94,7 +89,7 @@ export default function Dashboard() {
   const waterPct = Math.round((waterTotal / waterGoal) * 100)
 
   const greeting = `Hello, ${profile.displayName?.split(' ')[0] ?? 'User'}`
-  const dateStr = formatFullDate(todayISO())
+  const dateStr = formatFullDate(localTodayISO())
 
   return (
     <div className="animate-fade-in">

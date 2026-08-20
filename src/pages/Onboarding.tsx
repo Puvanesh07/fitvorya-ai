@@ -47,6 +47,8 @@ export default function Onboarding() {
         weight: Number(weight),
         activityLevel,
         goal,
+        // Store starting weight once at onboarding for real progress tracking
+        startingWeight: Number(weight),
         targetWeight: targetWeight ? Number(targetWeight) : undefined,
         onboardingComplete: true,
       })

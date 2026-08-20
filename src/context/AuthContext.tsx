@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { User } from 'firebase/auth'
-import { onAuthChange } from '../firebase/auth'
+import { onAuthChange, getGoogleRedirectResult } from '../firebase/auth'
 import type { UserProfile } from '../types/user'
 import { loadUserProfile } from '../services/userService'
 
@@ -33,6 +33,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
+    // Capture Google redirect result on app startup (mobile sign-in flow)
+    getGoogleRedirectResult().catch(() => {})
+
     const unsubscribe = onAuthChange(async (firebaseUser) => {
       setUser(firebaseUser)
       if (firebaseUser) {

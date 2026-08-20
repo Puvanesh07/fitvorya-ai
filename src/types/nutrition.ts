@@ -14,7 +14,15 @@ export const MEAL_ICONS: Record<MealType, string> = {
   snacks: '🍎',
 }
 
-/** A food item from the USDA API or manually entered */
+/** A food item from the USDA API or manually entered.
+ *
+ *  ALL macro values (calories, protein, carbs, fat, fiber) are stored
+ *  **per 100g** so that `scaleMacros(food, grams)` is always correct.
+ *
+ *  For items that are naturally measured in servings (e.g. "Idli — 1 piece"),
+ *  store the values per 100g and include `servingSize` + `servingUnit` so
+ *  the UI can show "per piece" alongside the gram input.
+ */
 export interface FoodItem {
   fdcId: string
   name: string
@@ -25,6 +33,10 @@ export interface FoodItem {
   carbs: number
   fat: number
   fiber?: number
+  /** Optional: typical serving size in grams (e.g. 45 for one idli) */
+  servingSize?: number
+  /** Optional: human label for the serving (e.g. "1 piece", "1 cup") */
+  servingUnit?: string
 }
 
 /** A single logged food entry in a meal */

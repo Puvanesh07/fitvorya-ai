@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useAuth } from '../context/AuthContext'
+import PageLoader from '../components/PageLoader'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { computeMetrics } from '../utils/calculations'
 import {
@@ -59,6 +60,10 @@ export default function Nutrition() {
     entries: meals.filter(m => m.meal === type),
   }))
 
+  if (loading) {
+    return <PageLoader />
+  }
+
   async function handleAddWater(ml: number) {
     await logWater(uid, ml, date)
     load()
@@ -96,11 +101,7 @@ export default function Nutrition() {
         </div>
       </div>
 
-      {loading ? (
-        <div className="flex justify-center py-24"><LoadingSpinner size="lg" /></div>
-      ) : (
-        <>
-          {/* Top cards — Calories + Macros + Water */}
+      {/* Top cards — Calories + Macros + Water */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
             {/* Calories */}
             <div className="card-yellow p-6">
@@ -258,8 +259,6 @@ export default function Nutrition() {
               </div>
             </div>
           )}
-        </>
-      )}
 
       {/* Add Food Modal */}
       {showAddFood && (

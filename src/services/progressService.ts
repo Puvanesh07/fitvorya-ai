@@ -4,10 +4,11 @@ import {
 import { fetchWeightHistory } from './weightService'
 import { fetchWorkoutHistory } from './workoutService'
 import { fetchPersonalRecords } from './workoutService'
+import { fetchMealsForRange } from './nutritionService'
 import type { Measurement, StreakData } from '../types/progress'
 import { computeBadges } from '../types/progress'
 import type { Badge } from '../types/progress'
-import { todayISO } from '../utils/format'
+import { localTodayISO, dateToISO } from '../utils/format'
 
 // ── Measurements ──────────────────────────────────────────────────────────────
 
@@ -33,7 +34,7 @@ export async function removeMeasurement(uid: string, id: string): Promise<void> 
 }
 
 // ── Streak calculation ────────────────────────────────────────────────────────
-// A "active day" = any day where the user logged weight, a workout, or a meal.
+// An "active day" = any day where the user logged weight, a workout, or a meal.
 
 export function calculateStreak(activeDates: string[]): StreakData {
   if (activeDates.length === 0) {
@@ -41,23 +42,25 @@ export function calculateStreak(activeDates: string[]): StreakData {
   }
 
   const sorted = [...new Set(activeDates)].sort()
-  const today = todayISO()
-  const yesterday = new Date()
-  yesterday.setDate(yesterday.getDate() - 1)
-  const yesterdayStr = yesterday.toISOString().split('T')[0]
+  // Use local timezone — toISOString() returns UTC and breaks streaks for users west of UTC
+  const today = localTodayISO()
+  const yesterdayDate = new Date()
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1)
+  const yesterdayStr = dateToISO(yesterdayDate) // local-timezone safe
 
-  // Calculate current streak
+  // Calculate current streak — walk backwards from the most recent active date
   let currentStreak = 0
   const lastDate = sorted[sorted.length - 1]
 
-  // Streak is active only if last activity was today or yesterday
   if (lastDate === today || lastDate === yesterdayStr) {
-    let checkDate = new Date(lastDate)
+    // Build a cursor date from lastDate at local midnight (append T00:00:00 to
+    // force local-time parsing, not UTC)
+    let cursorDate = new Date(lastDate + 'T00:00:00')
     for (let i = sorted.length - 1; i >= 0; i--) {
-      const expectedDate = checkDate.toISOString().split('T')[0]
-      if (sorted[i] === expectedDate) {
+      const expected = dateToISO(cursorDate) // local-timezone safe
+      if (sorted[i] === expected) {
         currentStreak++
-        checkDate.setDate(checkDate.getDate() - 1)
+        cursorDate.setDate(cursorDate.getDate() - 1)
       } else {
         break
       }
@@ -68,8 +71,10 @@ export function calculateStreak(activeDates: string[]): StreakData {
   let longestStreak = 0
   let tempStreak = 1
   for (let i = 1; i < sorted.length; i++) {
-    const prev = new Date(sorted[i - 1])
-    const curr = new Date(sorted[i])
+    // Parse with T00:00:00 to force local time so daylight-saving transitions
+    // don't create ghost 25-hour days that diff to 2 days
+    const prev = new Date(sorted[i - 1] + 'T00:00:00')
+    const curr = new Date(sorted[i] + 'T00:00:00')
     const diffDays = Math.round((curr.getTime() - prev.getTime()) / 86400000)
     if (diffDays === 1) {
       tempStreak++
@@ -101,24 +106,37 @@ export interface ProgressSummary {
 }
 
 export async function fetchProgressSummary(uid: string): Promise<ProgressSummary> {
-  const [weights, workouts, prs, measurements] = await Promise.all([
+  // Fetch meals for the past 90 days to count real meal-logging days
+  const cutoffDate = new Date()
+  cutoffDate.setDate(cutoffDate.getDate() - 90)
+  const cutoffStr = dateToISO(cutoffDate)
+  const today = localTodayISO()
+
+  const [weights, workouts, prs, measurements, recentMeals] = await Promise.all([
     fetchWeightHistory(uid),
     fetchWorkoutHistory(uid),
     fetchPersonalRecords(uid),
     fetchMeasurements(uid),
+    fetchMealsForRange(uid, cutoffStr, today),
   ])
 
-  // Build active dates from all sources
+  // Count distinct meal-logging days (real count, not a stub)
+  const mealDateSet = new Set<string>()
+  recentMeals.forEach(m => mealDateSet.add(m.date))
+  const mealEntryCount = mealDateSet.size
+
+  // Build active dates from all sources for streak
   const activeDateSet = new Set<string>()
   weights.forEach(w => activeDateSet.add(w.date))
   workouts.forEach(w => activeDateSet.add(w.date))
+  mealDateSet.forEach(d => activeDateSet.add(d))
 
   const streak = calculateStreak(Array.from(activeDateSet))
 
   const badges = computeBadges({
     workoutCount:     workouts.length,
     weightEntryCount: weights.length,
-    mealEntryCount:   weights.length > 0 ? 1 : 0, // simplified — V5 will track properly
+    mealEntryCount,   // real count now
     prCount:          prs.length,
     measurementCount: measurements.length,
     streak:           streak.currentStreak,
