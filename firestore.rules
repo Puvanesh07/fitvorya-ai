@@ -1,0 +1,131 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================================
+    // USER PROFILE
+    // ============================================================
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+
+      // ==========================================================
+      // WEIGHT ENTRIES
+      // ==========================================================
+      match /weights/{weightId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // ==========================================================
+      // NUTRITION ENTRIES  (meals)
+      // ==========================================================
+      match /meals/{mealId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // ==========================================================
+      // WATER TRACKING
+      // ==========================================================
+      match /water/{waterId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // ==========================================================
+      // WORKOUT LOGS
+      // ==========================================================
+      match /workouts/{workoutId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // ==========================================================
+      // WORKOUT TEMPLATES
+      // ==========================================================
+      match /workoutTemplates/{templateId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // ==========================================================
+      // PERSONAL RECORDS
+      // ==========================================================
+      match /personalRecords/{exerciseId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // ==========================================================
+      // HABITS
+      // ==========================================================
+      match /habits/{habitId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // ==========================================================
+      // BODY MEASUREMENTS
+      // ==========================================================
+      match /measurements/{measurementId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // ==========================================================
+      // PROGRESS PHOTOS METADATA
+      // ==========================================================
+      match /progressPhotos/{photoId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // ==========================================================
+      // STREAKS & ACHIEVEMENTS
+      // ==========================================================
+      match /streaks/{streakId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // ============================================================
+    // SHARED FOOD DATABASE
+    // Users can search/read. Only Cloud Functions or admin write.
+    // ============================================================
+    match /foods/{foodId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // Legacy cache collections — same read-only policy
+    match /foodCache/{docId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    match /indianFoods/{docId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // ============================================================
+    // SHARED EXERCISE DATABASE
+    // ============================================================
+    match /exercises/{exerciseId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    match /exerciseCache/{docId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // ============================================================
+    // HELPER FUNCTION
+    // ============================================================
+    function isOwner(userId) {
+      return request.auth != null
+             && request.auth.uid == userId;
+    }
+
+    // ============================================================
+    // DENY EVERYTHING ELSE
+    // ============================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
