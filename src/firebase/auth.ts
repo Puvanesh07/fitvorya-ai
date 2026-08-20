@@ -51,22 +51,28 @@ export async function loginWithEmail(
 }
 
 /** Sign in with Google.
- *  Uses redirect on the deployed domain (avoids COOP popup-blocking on
- *  Firebase Hosting) and popup only in localhost dev where redirect is slow. */
+ *  Uses popup on desktop and direct-URL browsers.
+ *  Falls back to redirect only for in-app browsers (Instagram, TikTok, etc.)
+ *  where popups are genuinely blocked by the OS webview. */
 export async function loginWithGoogle(): Promise<User> {
-  const isLocalhost = window.location.hostname === 'localhost'
-    || window.location.hostname === '127.0.0.1'
+  const isInAppBrowser = /FBAN|FBAV|Instagram|Twitter|Line\/|wv\)/.test(navigator.userAgent)
 
-  if (!isLocalhost) {
-    // Deployed: use redirect to avoid Cross-Origin-Opener-Policy popup issues
+  if (isInAppBrowser) {
     await signInWithRedirect(auth, googleProvider)
-    // This line is never reached — redirect navigates away
     throw new Error('Redirecting…')
   }
 
-  // Local dev: popup is fine and faster
-  const credential = await signInWithPopup(auth, googleProvider)
-  return credential.user
+  try {
+    const credential = await signInWithPopup(auth, googleProvider)
+    return credential.user
+  } catch (err: unknown) {
+    // Popup blocked by browser settings — fall back to redirect
+    if (err instanceof Error && err.message.includes('popup-blocked')) {
+      await signInWithRedirect(auth, googleProvider)
+      throw new Error('Redirecting…')
+    }
+    throw err
+  }
 }
 
 /** Call once on app startup inside AuthContext to capture the redirect result */

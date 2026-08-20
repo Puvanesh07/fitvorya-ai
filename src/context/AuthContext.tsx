@@ -24,8 +24,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   async function fetchProfile(uid: string) {
-    const p = await loadUserProfile(uid)
-    setProfile(p)
+    try {
+      const p = await loadUserProfile(uid)
+      setProfile(p)
+    } catch {
+      setProfile(null)
+    }
   }
 
   async function refreshProfile() {
@@ -33,7 +37,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    // Capture Google redirect result on app startup (mobile sign-in flow)
+    // Handle Google redirect result FIRST, before setting up the auth observer.
+    // If we got here via a redirect sign-in, getRedirectResult resolves with
+    // the signed-in user — onAuthStateChanged will then fire normally after that.
     getGoogleRedirectResult().catch(() => {})
 
     const unsubscribe = onAuthChange(async (firebaseUser) => {

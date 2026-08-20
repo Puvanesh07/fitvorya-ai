@@ -7,9 +7,6 @@ import {
   addDoc,
   getDocs,
   deleteDoc,
-  query,
-  orderBy,
-  limit,
   serverTimestamp,
   Timestamp,
 } from 'firebase/firestore'
@@ -82,30 +79,32 @@ export async function addWeightEntry(
 
 export async function getWeightEntries(uid: string): Promise<WeightEntry[]> {
   const ref = collection(db, 'users', uid, 'weights')
-  // Cap at 365 entries (1 year daily) — avoids unbounded reads for long-term users
-  const q = query(ref, orderBy('date', 'desc'), limit(365))
-  const snap = await getDocs(q)
+  // No orderBy — avoids index requirement. Sort client-side after fetch.
+  // limit(365) removed too since orderBy is gone (limit without orderBy fetches arbitrary docs)
+  const snap = await getDocs(ref)
   return snap.docs.map((d) => {
     const data = d.data()
     let dateStr = ''
     if (data.date instanceof Timestamp) {
-      // Legacy: some old entries may have been stored as Timestamp — convert using local time
       const ts = data.date.toDate()
       dateStr = `${ts.getFullYear()}-${String(ts.getMonth() + 1).padStart(2, '0')}-${String(ts.getDate()).padStart(2, '0')}`
-    } else if (typeof data.date === 'string') {
+    } else if (typeof data.date === 'string' && data.date.length === 10) {
       dateStr = data.date
     } else {
       dateStr = localTodayISO()
     }
     return {
       id: d.id,
-      weight: data.weight,
+      weight: typeof data.weight === 'number' ? data.weight : 0,
       date: dateStr,
       note: data.note ?? '',
       createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : '',
     } as WeightEntry
   })
-  // Already ordered desc by Firestore, so most recent is first — no client-sort needed
+  // Sort newest first client-side
+    .filter(w => w.weight > 0)
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 365)
 }
 
 export async function updateWeightEntry(

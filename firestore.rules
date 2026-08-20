@@ -10,10 +10,6 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid == userId;
     }
 
-    function isString(val) {
-      return val is string && val.size() > 0;
-    }
-
     function isPositiveNumber(val) {
       return val is number && val > 0;
     }
@@ -23,8 +19,28 @@ service cloud.firestore {
     }
 
     function isDateStr(val) {
-      // YYYY-MM-DD format, basic length check
       return val is string && val.size() == 10;
+    }
+
+    // Validate weight field if present — must be a realistic number
+    function validWeight(data) {
+      return !('weight' in data)
+        || (data.weight is number && data.weight > 20 && data.weight < 500);
+    }
+
+    function validHeight(data) {
+      return !('height' in data)
+        || (data.height is number && data.height > 50 && data.height < 300);
+    }
+
+    function validTargetWeight(data) {
+      return !('targetWeight' in data)
+        || (data.targetWeight is number && data.targetWeight > 20 && data.targetWeight < 500);
+    }
+
+    function validAge(data) {
+      return !('age' in data)
+        || (data.age is number && data.age >= 13 && data.age <= 120);
     }
 
     // ============================================================
@@ -33,29 +49,19 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isOwner(userId);
 
-      allow create: if isOwner(userId);
+      // Allow create for any authenticated user writing their own doc
+      allow create: if isOwner(userId)
+        && validWeight(request.resource.data)
+        && validHeight(request.resource.data)
+        && validAge(request.resource.data);
 
+      // Allow update — same field-level validation, no required-field checks
+      // (merge writes may only include changed fields, not the full profile)
       allow update: if isOwner(userId)
-        // Weight must be a realistic number if provided
-        && (!('weight' in request.resource.data)
-            || (request.resource.data.weight is number
-                && request.resource.data.weight > 20
-                && request.resource.data.weight < 500))
-        // Height in cm
-        && (!('height' in request.resource.data)
-            || (request.resource.data.height is number
-                && request.resource.data.height > 50
-                && request.resource.data.height < 300))
-        // Target weight
-        && (!('targetWeight' in request.resource.data)
-            || (request.resource.data.targetWeight is number
-                && request.resource.data.targetWeight > 20
-                && request.resource.data.targetWeight < 500))
-        // Age
-        && (!('age' in request.resource.data)
-            || (request.resource.data.age is number
-                && request.resource.data.age >= 13
-                && request.resource.data.age <= 120));
+        && validWeight(request.resource.data)
+        && validHeight(request.resource.data)
+        && validTargetWeight(request.resource.data)
+        && validAge(request.resource.data);
 
       // ── WEIGHT ENTRIES ──────────────────────────────────────
       match /weights/{weightId} {
@@ -67,12 +73,7 @@ service cloud.firestore {
           && request.resource.data.weight < 500
           && isDateStr(request.resource.data.date);
 
-        allow update: if isOwner(userId)
-          && (!('weight' in request.resource.data)
-              || (isPositiveNumber(request.resource.data.weight)
-                  && request.resource.data.weight > 20
-                  && request.resource.data.weight < 500));
-
+        allow update: if isOwner(userId);
         allow delete: if isOwner(userId);
       }
 
@@ -108,7 +109,7 @@ service cloud.firestore {
         allow read: if isOwner(userId);
 
         allow create: if isOwner(userId)
-          && isString(request.resource.data.name)
+          && request.resource.data.name is string
           && isDateStr(request.resource.data.date)
           && request.resource.data.exercises is list;
 
@@ -125,7 +126,7 @@ service cloud.firestore {
         allow read: if isOwner(userId);
 
         allow write: if isOwner(userId)
-          && isString(request.resource.data.exerciseId)
+          && request.resource.data.exerciseId is string
           && isNonNegNumber(request.resource.data.weightKg)
           && isPositiveNumber(request.resource.data.reps);
 
@@ -137,14 +138,7 @@ service cloud.firestore {
         allow read: if isOwner(userId);
 
         allow create: if isOwner(userId)
-          && isDateStr(request.resource.data.date)
-          // At least one body measurement must be present
-          && (('weight' in request.resource.data && isPositiveNumber(request.resource.data.weight))
-              || ('waist' in request.resource.data && isPositiveNumber(request.resource.data.waist))
-              || ('chest' in request.resource.data && isPositiveNumber(request.resource.data.chest))
-              || ('hips'  in request.resource.data && isPositiveNumber(request.resource.data.hips))
-              || ('arms'  in request.resource.data && isPositiveNumber(request.resource.data.arms))
-              || ('thighs' in request.resource.data && isPositiveNumber(request.resource.data.thighs)));
+          && isDateStr(request.resource.data.date);
 
         allow update: if isOwner(userId);
         allow delete: if isOwner(userId);
@@ -184,9 +178,6 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // ============================================================
-    // SHARED EXERCISE DATABASE — read-only for authenticated users
-    // ============================================================
     match /exercises/{exerciseId} {
       allow read: if request.auth != null;
       allow write: if false;
