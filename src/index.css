@@ -46,27 +46,40 @@
   }
 
   .dark {
-    --bg:       12 12 20;
-    --surface:  20 20 35;
-    --surface2: 28 28 45;
-    --border:   42 42 65;
+    --bg:       13 13 22;
+    --surface:  22 22 38;
+    --surface2: 30 30 50;
+    --border:   50 50 78;
 
-    --text-primary:   240 240 255;
-    --text-secondary: 150 150 180;
-    --text-muted:     90  90 120;
+    /* Boosted text contrast for dark mode */
+    --text-primary:   245 245 255;
+    --text-secondary: 170 170 200;
+    --text-muted:     100 100 135;
 
-    --purple-500: 150 100 230;
-    --purple-400: 180 130 255;
-    --purple-100: 35  25  65;
-    --purple-50:  20  15  40;
+    /* Brighter purple for dark mode visibility */
+    --purple-600: 130 80  210;
+    --purple-500: 160 110 240;
+    --purple-400: 190 145 255;
+    --purple-300: 215 180 255;
+    --purple-100: 40  28  75;
+    --purple-50:  24  18  48;
 
-    --card-green:  20 45 30;
-    --card-yellow: 45 40 15;
-    --card-purple: 35 25 60;
-    --card-blue:   20 30 55;
-    --card-pink:   50 20 35;
-    --card-orange: 50 30 15;
-    --card-lime:   25 45 15;
+    --pink-500: 245 70  170;
+    --pink-400: 255 115 200;
+    --pink-300: 255 160 220;
+    --pink-100: 60  22  45;
+
+    --card-green:  18 50 28;
+    --card-yellow: 50 44 12;
+    --card-purple: 38 28 68;
+    --card-blue:   18 32 60;
+    --card-pink:   55 18 38;
+    --card-orange: 55 32 12;
+    --card-lime:   22 50 14;
+
+    --success: 72 200 110;
+    --warning: 255 190 50;
+    --danger:  255 90  90;
   }
 
   html {
@@ -233,24 +246,42 @@
   background: rgb(var(--surface));
   border-radius: 1.25rem;
   padding: 1.25rem;
+  border: 1px solid rgb(var(--border));
   transition: box-shadow 0.2s ease, transform 0.2s ease;
 }
 .card-hover:hover {
-  box-shadow: 0 8px 30px rgb(var(--purple-500) / 0.1);
+  box-shadow: 0 8px 30px rgb(var(--purple-500) / 0.12);
   transform: translateY(-2px);
 }
+/* Light mode shadow — subtle */
 .card-shadow {
-  box-shadow: 0 2px 16px rgb(0 0 0 / 0.06);
+  box-shadow: 0 2px 12px rgb(0 0 0 / 0.07), 0 1px 3px rgb(0 0 0 / 0.04);
+}
+/* Dark mode — inner border glow instead of drop shadow */
+.dark .card-shadow {
+  box-shadow: 0 2px 16px rgb(0 0 0 / 0.4), inset 0 1px 0 rgb(255 255 255 / 0.04);
+}
+.dark .card {
+  background: linear-gradient(145deg, rgb(var(--surface)), rgb(var(--surface2)));
+  border-color: rgb(var(--border));
 }
 
 /* Pastel stat cards */
-.card-green  { background: rgb(var(--card-green));  border-radius: 1.25rem; }
-.card-yellow { background: rgb(var(--card-yellow)); border-radius: 1.25rem; }
-.card-purple { background: rgb(var(--card-purple)); border-radius: 1.25rem; }
-.card-blue   { background: rgb(var(--card-blue));   border-radius: 1.25rem; }
-.card-pink   { background: rgb(var(--card-pink));   border-radius: 1.25rem; }
-.card-orange { background: rgb(var(--card-orange)); border-radius: 1.25rem; }
-.card-lime   { background: rgb(var(--card-lime));   border-radius: 1.25rem; }
+.card-green  { background: rgb(var(--card-green));  border-radius: 1.25rem; border: 1px solid rgb(var(--success) / 0.2); }
+.card-yellow { background: rgb(var(--card-yellow)); border-radius: 1.25rem; border: 1px solid rgb(var(--warning) / 0.25); }
+.card-purple { background: rgb(var(--card-purple)); border-radius: 1.25rem; border: 1px solid rgb(var(--purple-400) / 0.2); }
+.card-blue   { background: rgb(var(--card-blue));   border-radius: 1.25rem; border: 1px solid rgb(60 130 240 / 0.2); }
+.card-pink   { background: rgb(var(--card-pink));   border-radius: 1.25rem; border: 1px solid rgb(var(--pink-400) / 0.2); }
+.card-orange { background: rgb(var(--card-orange)); border-radius: 1.25rem; border: 1px solid rgb(250 120 50 / 0.2); }
+.card-lime   { background: rgb(var(--card-lime));   border-radius: 1.25rem; border: 1px solid rgb(100 200 50 / 0.2); }
+
+.dark .card-purple { background: linear-gradient(135deg, rgb(38 28 70), rgb(30 22 56)); }
+.dark .card-green  { background: linear-gradient(135deg, rgb(15 42 25), rgb(12 34 20)); }
+.dark .card-yellow { background: linear-gradient(135deg, rgb(42 36 10), rgb(34 28  8)); }
+.dark .card-blue   { background: linear-gradient(135deg, rgb(15 26 52), rgb(12 20 42)); }
+.dark .card-pink   { background: linear-gradient(135deg, rgb(48 15 32), rgb(38 12 26)); }
+.dark .card-lime   { background: linear-gradient(135deg, rgb(18 42 12), rgb(14 34  8)); }
+.dark .card-orange { background: linear-gradient(135deg, rgb(48 26 10), rgb(38 20  8)); }
 
 /* ── Sidebar (legacy — layout now in AppLayout.tsx/Sidebar.tsx) ─────────────── */
 .sidebar { display: none; } /* handled by Tailwind in component */
@@ -293,21 +324,57 @@
 /* ── Input ───────────────────────────────────────────────────────────────────── */
 .input {
   width: 100%;
-  background: rgb(var(--surface2));
+  background: rgb(var(--surface));
   border: 1.5px solid rgb(var(--border));
   border-radius: 0.875rem;
   padding: 0.7rem 1rem;
   font-size: 0.875rem;
   color: rgb(var(--text-primary));
   outline: none;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
   font-family: inherit;
+  /* Ensure <select> elements use theme colors */
+  appearance: auto;
+  -webkit-appearance: auto;
 }
 .input:focus {
   border-color: rgb(var(--purple-500));
-  box-shadow: 0 0 0 3px rgb(var(--purple-500) / 0.12);
+  box-shadow: 0 0 0 3px rgb(var(--purple-500) / 0.15), 0 1px 4px rgb(0 0 0 / 0.08);
+  background: rgb(var(--surface));
 }
 .input::placeholder { color: rgb(var(--text-muted)); }
+.input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: rgb(var(--surface2));
+}
+
+/* Dark mode: ensure select/option text is visible */
+.dark .input,
+.dark select.input,
+.dark select {
+  background: rgb(var(--surface2));
+  color: rgb(var(--text-primary));
+  border-color: rgb(var(--border));
+}
+.dark .input option,
+.dark select option {
+  background: rgb(var(--surface));
+  color: rgb(var(--text-primary));
+}
+.dark .input:focus,
+.dark select.input:focus {
+  background: rgb(var(--surface));
+  border-color: rgb(var(--purple-400));
+  box-shadow: 0 0 0 3px rgb(var(--purple-400) / 0.2);
+}
+
+/* Light mode: ensure good contrast */
+select.input,
+select {
+  background: rgb(var(--surface));
+  color: rgb(var(--text-primary));
+}
 
 /* ── Buttons ─────────────────────────────────────────────────────────────────── */
 .btn-primary {
@@ -688,3 +755,171 @@ h1, h2, h3 { text-wrap: balance; }
 .dark .card-pink   { background: linear-gradient(135deg, rgb(45 15 30), rgb(38 12 25)); }
 .dark .card-lime   { background: linear-gradient(135deg, rgb(20 40 12), rgb(15 32 8));  }
 .dark .card-orange { background: linear-gradient(135deg, rgb(45 25 10), rgb(38 20 8));  }
+
+/* ── Dark mode form controls ─────────────────────────────────────────────────── */
+.dark .input,
+.dark select,
+.dark textarea {
+  background: rgb(var(--surface2));
+  color: rgb(var(--text-primary));
+  border-color: rgb(var(--border));
+  color-scheme: dark;
+}
+.dark .input option,
+.dark select option {
+  background: rgb(22 22 38);
+  color: rgb(245 245 255);
+}
+.dark .input:focus,
+.dark select:focus,
+.dark textarea:focus {
+  background: rgb(var(--surface));
+  border-color: rgb(var(--purple-400));
+  box-shadow: 0 0 0 3px rgb(var(--purple-400) / 0.2);
+}
+.dark input[type="date"],
+.dark input[type="time"],
+.dark input[type="number"],
+.dark input[type="search"] {
+  color-scheme: dark;
+  background: rgb(var(--surface2));
+  color: rgb(var(--text-primary));
+}
+
+/* ── Card shadow — dark mode ─────────────────────────────────────────────────── */
+.dark .card-shadow {
+  box-shadow: 0 2px 16px rgb(0 0 0 / 0.45), inset 0 1px 0 rgb(255 255 255 / 0.04);
+}
+.dark .card {
+  background: linear-gradient(145deg, rgb(var(--surface)), rgb(var(--surface2)));
+  border-color: rgb(var(--border));
+}
+
+/* ── Recharts dark mode fix ──────────────────────────────────────────────────── */
+.dark .recharts-cartesian-axis-tick-value,
+.dark .recharts-legend-item-text {
+  fill: rgb(var(--text-secondary)) !important;
+  color: rgb(var(--text-secondary)) !important;
+}
+.dark .recharts-cartesian-grid-horizontal line,
+.dark .recharts-cartesian-grid-vertical line {
+  stroke: rgb(var(--border)) !important;
+}
+
+/* ── Modal overlay consistent in both themes ─────────────────────────────────── */
+.modal-overlay {
+  background: rgb(0 0 0 / 0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* ── Stat value numbers ──────────────────────────────────────────────────────── */
+.stat-value {
+  font-size: clamp(1.5rem, 3vw, 2.25rem);
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+/* ── Scrollbar hide ──────────────────────────────────────────────────────────── */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar { display: none; }
+
+/* ── Skeleton ────────────────────────────────────────────────────────────────── */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.45; }
+}
+.skeleton {
+  background: rgb(var(--surface2));
+  border-radius: 0.5rem;
+  animation: skeleton-pulse 1.6s ease-in-out infinite;
+}
+
+/* ── Section heading ─────────────────────────────────────────────────────────── */
+.section-heading {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  font-size: 1rem; font-weight: 800;
+  color: rgb(var(--text-primary)); letter-spacing: -0.02em;
+}
+.section-heading::before {
+  content: ''; display: block; width: 4px; height: 1.1em;
+  border-radius: 99px;
+  background: linear-gradient(180deg, rgb(var(--purple-600)), rgb(var(--pink-400)));
+  flex-shrink: 0;
+}
+
+/* ── Section divider ─────────────────────────────────────────────────────────── */
+.section-divider {
+  width: 100%; height: 1px;
+  background: linear-gradient(90deg, transparent, rgb(var(--border)), transparent);
+  margin: 1.5rem 0;
+}
+
+/* ── Chip tag ────────────────────────────────────────────────────────────────── */
+.chip {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  padding: 0.2rem 0.65rem; border-radius: 99px;
+  font-size: 0.7rem; font-weight: 600;
+  background: rgb(var(--surface2)); border: 1px solid rgb(var(--border));
+  color: rgb(var(--text-secondary)); transition: all 0.15s;
+}
+.chip:hover {
+  border-color: rgb(var(--purple-400));
+  color: rgb(var(--purple-600));
+  background: rgb(var(--purple-50));
+}
+
+/* ── Animated underline link ─────────────────────────────────────────────────── */
+.link-underline {
+  position: relative; text-decoration: none;
+  color: rgb(var(--purple-600)); font-weight: 600;
+}
+.link-underline::after {
+  content: ''; position: absolute; bottom: -1px; left: 0;
+  width: 0; height: 2px;
+  background: linear-gradient(90deg, rgb(var(--purple-600)), rgb(var(--pink-400)));
+  transition: width 0.25s ease; border-radius: 99px;
+}
+.link-underline:hover::after { width: 100%; }
+
+/* ── Pulse ring ──────────────────────────────────────────────────────────────── */
+@keyframes pulse-ring {
+  0%   { box-shadow: 0 0 0 0 rgb(var(--purple-500) / 0.5); }
+  100% { box-shadow: 0 0 0 14px rgb(var(--purple-500) / 0); }
+}
+.pulse-ring { animation: pulse-ring 1.5s ease-out infinite; }
+
+/* ── Notif dot ───────────────────────────────────────────────────────────────── */
+.notif-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: rgb(var(--pink-500));
+  box-shadow: 0 0 0 2px rgb(var(--surface));
+}
+
+/* ── Stats grid ──────────────────────────────────────────────────────────────── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+/* ── Text gradients ──────────────────────────────────────────────────────────── */
+.gradient-text-green {
+  background: linear-gradient(135deg, #10b981, #059669);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.gradient-text-orange {
+  background: linear-gradient(135deg, #f97316, #ea580c);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.gradient-text-blue {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+
+/* ── Text balance ────────────────────────────────────────────────────────────── */
+h1, h2, h3 { text-wrap: balance; }

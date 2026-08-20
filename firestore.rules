@@ -3,9 +3,8 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ============================================================
-    // HELPER FUNCTIONS
-    // ============================================================
+    // ── Helper functions ──────────────────────────────────────────────────────
+
     function isOwner(userId) {
       return request.auth != null && request.auth.uid == userId;
     }
@@ -22,7 +21,6 @@ service cloud.firestore {
       return val is string && val.size() == 10;
     }
 
-    // Validate weight field if present — must be a realistic number
     function validWeight(data) {
       return !('weight' in data)
         || (data.weight is number && data.weight > 20 && data.weight < 500);
@@ -43,27 +41,23 @@ service cloud.firestore {
         || (data.age is number && data.age >= 13 && data.age <= 120);
     }
 
-    // ============================================================
-    // USER PROFILE
-    // ============================================================
+    // ── User root document ────────────────────────────────────────────────────
+
     match /users/{userId} {
       allow read: if isOwner(userId);
 
-      // Allow create for any authenticated user writing their own doc
       allow create: if isOwner(userId)
         && validWeight(request.resource.data)
         && validHeight(request.resource.data)
         && validAge(request.resource.data);
 
-      // Allow update — same field-level validation, no required-field checks
-      // (merge writes may only include changed fields, not the full profile)
       allow update: if isOwner(userId)
         && validWeight(request.resource.data)
         && validHeight(request.resource.data)
         && validTargetWeight(request.resource.data)
         && validAge(request.resource.data);
 
-      // ── WEIGHT ENTRIES ──────────────────────────────────────
+      // ── Weight entries ────────────────────────────────────────────────────
       match /weights/{weightId} {
         allow read: if isOwner(userId);
 
@@ -77,7 +71,7 @@ service cloud.firestore {
         allow delete: if isOwner(userId);
       }
 
-      // ── MEALS ───────────────────────────────────────────────
+      // ── Meal entries ──────────────────────────────────────────────────────
       match /meals/{mealId} {
         allow read: if isOwner(userId);
 
@@ -92,7 +86,7 @@ service cloud.firestore {
         allow delete: if isOwner(userId);
       }
 
-      // ── WATER ───────────────────────────────────────────────
+      // ── Water entries ─────────────────────────────────────────────────────
       match /water/{waterId} {
         allow read: if isOwner(userId);
 
@@ -104,7 +98,7 @@ service cloud.firestore {
         allow delete: if isOwner(userId);
       }
 
-      // ── WORKOUTS ────────────────────────────────────────────
+      // ── Workouts ──────────────────────────────────────────────────────────
       match /workouts/{workoutId} {
         allow read: if isOwner(userId);
 
@@ -116,12 +110,12 @@ service cloud.firestore {
         allow delete: if isOwner(userId);
       }
 
-      // ── WORKOUT TEMPLATES ───────────────────────────────────
+      // ── Workout templates ─────────────────────────────────────────────────
       match /workoutTemplates/{templateId} {
         allow read, write: if isOwner(userId);
       }
 
-      // ── PERSONAL RECORDS ────────────────────────────────────
+      // ── Personal records ──────────────────────────────────────────────────
       match /personalRecords/{exerciseId} {
         allow read: if isOwner(userId);
 
@@ -133,7 +127,7 @@ service cloud.firestore {
         allow delete: if isOwner(userId);
       }
 
-      // ── MEASUREMENTS ────────────────────────────────────────
+      // ── Measurements ──────────────────────────────────────────────────────
       match /measurements/{measurementId} {
         allow read: if isOwner(userId);
 
@@ -144,25 +138,61 @@ service cloud.firestore {
         allow delete: if isOwner(userId);
       }
 
-      // ── HABITS ──────────────────────────────────────────────
+      // ── Habits ────────────────────────────────────────────────────────────
       match /habits/{habitId} {
         allow read, write: if isOwner(userId);
       }
 
-      // ── PROGRESS PHOTOS ─────────────────────────────────────
+      // ── Progress photos ───────────────────────────────────────────────────
       match /progressPhotos/{photoId} {
         allow read, write: if isOwner(userId);
       }
 
-      // ── STREAKS ─────────────────────────────────────────────
+      // ── Streaks ───────────────────────────────────────────────────────────
       match /streaks/{streakId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // ── PREGNANCY ─────────────────────────────────────────────────────────
+      // Path: users/{uid}/pregnancy/profile
+      // pregnancyService.ts uses setDoc/getDoc on this exact path.
+
+      match /pregnancy/{docId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // ── BABY ──────────────────────────────────────────────────────────────
+      // Path: users/{uid}/baby/profile
+      // Path: users/{uid}/baby/foodIntro/items/{foodId}
+      // babyService.ts uses 5-level deep path for food intro records.
+      // The {=**} wildcard covers both the profile doc and all nested paths.
+
+      match /baby/{docId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /baby/{docId}/{subcollection=**} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // ── FAMILY ────────────────────────────────────────────────────────────
+      // Paths:
+      //   users/{uid}/family/profile
+      //   users/{uid}/family/members/{memberId}
+      //   users/{uid}/family/shopping/list
+      // familyService.ts writes to all three paths.
+
+      match /family/{docId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /family/{docId}/{subcollection=**} {
         allow read, write: if isOwner(userId);
       }
     }
 
-    // ============================================================
-    // SHARED FOOD DATABASE — read-only for authenticated users
-    // ============================================================
+    // ── Shared read-only databases ────────────────────────────────────────────
+
     match /foods/{foodId} {
       allow read: if request.auth != null;
       allow write: if false;
@@ -188,9 +218,7 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // ============================================================
-    // DENY EVERYTHING ELSE
-    // ============================================================
+    // ── Deny everything else ──────────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;
     }
