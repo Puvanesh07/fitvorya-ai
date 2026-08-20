@@ -1,7 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import type { ReactNode } from 'react'
 import { useAuth } from '../context/AuthContext'
-import PageWrapper from '../components/PageWrapper'
 import LoadingSpinner from '../components/LoadingSpinner'
 import {
   saveMeasurement, fetchMeasurements, removeMeasurement, fetchProgressSummary,
@@ -192,17 +191,17 @@ export default function Progress() {
   const streak = summary?.streak
 
   return (
-    <PageWrapper>
+    <div className="animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 animate-fade-up opacity-0"
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 animate-fade-up opacity-0"
         style={{ animationFillMode: 'forwards' }}>
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold font-display text-text-primary">
+          <h1 className="text-2xl font-black text-text-primary">
             Progress <span className="gradient-text">Tracker</span>
           </h1>
           <p className="text-sm text-text-secondary mt-1">Measurements, streaks, and milestones.</p>
         </div>
-        <button onClick={() => setShowAdd(true)} className="btn-primary py-2.5 px-5">
+        <button onClick={() => setShowAdd(true)} className="btn-purple py-2.5 px-5">
           📏 Log Measurements
         </button>
       </div>
@@ -410,12 +409,12 @@ export default function Progress() {
         </>
       )}
 
-      {/* Add measurement modal */}
+      {/* Mobile bottom nav */}
       {showAdd && (
         <Modal title="📏 Log Measurements" onClose={() => setShowAdd(false)}>
           <MeasurementForm uid={uid} onSaved={load} onClose={() => setShowAdd(false)} />
         </Modal>
       )}
-    </PageWrapper>
+    </div>
   )
 }

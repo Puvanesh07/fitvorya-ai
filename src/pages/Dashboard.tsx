@@ -1,35 +1,18 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import PageWrapper from '../components/PageWrapper'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { computeMetrics } from '../utils/calculations'
+import type { WeightEntry, MealEntry, WaterEntry } from '../types'
+import type { WorkoutSession } from '../types/workout'
 import { fetchWeightHistory } from '../services/weightService'
 import { fetchMealsForDate, fetchWaterForDate } from '../services/nutritionService'
 import { fetchWorkoutHistory } from '../services/workoutService'
 import { fetchProgressSummary } from '../services/progressService'
 import type { ProgressSummary } from '../services/progressService'
-import { GOAL_LABELS } from '../types/user'
-import type { WeightEntry } from '../types/weight'
+import { formatFullDate, todayISO } from '../utils/format'
 import type { FitnessMetrics } from '../utils/calculations'
-import { formatDate, todayISO } from '../utils/format'
-import { sumNutrition, sumWater } from '../types/nutrition'
-import type { MealEntry, WaterEntry } from '../types/nutrition'
-import type { WorkoutSession } from '../types/workout'
-import { formatDuration } from '../services/workoutService'
-import {
-  ResponsiveContainer, AreaChart, Area, XAxis, YAxis,
-  CartesianGrid, Tooltip, ReferenceLine,
-} from 'recharts'
-
-function greeting() {
-  const h = new Date().getHours()
-  if (h < 12) return 'Good morning'
-  if (h < 17) return 'Good afternoon'
-  return 'Good evening'
-}
-
-function firstName(name: string) { return name.split(' ')[0] }
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line } from 'recharts'
 
 export default function Dashboard() {
   const { profile } = useAuth()
@@ -61,268 +44,287 @@ export default function Dashboard() {
     }).finally(() => setLoading(false))
   }, [profile])
 
-  if (!profile || !metrics) {
+  if (loading || !metrics || !profile) {
     return (
-      <PageWrapper>
-        <div className="flex flex-col items-center justify-center py-32 gap-4">
-          <div className="h-14 w-14 rounded-2xl gradient-brand flex items-center justify-center animate-pulse-glow">
-            <LoadingSpinner size="md" />
-          </div>
-          <p className="text-sm text-text-secondary">Loading your dashboard…</p>
-        </div>
-      </PageWrapper>
+      <div className="flex flex-col items-center justify-center py-32 gap-4">
+        <LoadingSpinner size="lg" />
+        <p className="text-sm text-text-secondary">Loading your dashboard…</p>
+      </div>
     )
   }
 
-  const latestWeight = weights.length > 0
-    ? [...weights].sort((a, b) => b.date.localeCompare(a.date))[0].weight
-    : profile.weight
+  // Today's nutrition
+  const todayNutrition = meals.reduce((acc, m) => {
+    const factor = m.grams / 100
+    return {
+      calories: acc.calories + m.foodItem.calories * factor,
+      protein:  acc.protein  + m.foodItem.protein  * factor,
+      carbs:    acc.carbs    + m.foodItem.carbs    * factor,
+      fat:      acc.fat      + m.foodItem.fat      * factor,
+    }
+  }, { calories: 0, protein: 0, carbs: 0, fat: 0 })
 
-  const chartData = [...weights]
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .slice(-14)
-    .map((w) => ({ date: formatDate(w.date), weight: w.weight }))
+  const waterTotal = water.reduce((sum, w) => sum + w.amount, 0)
+  const waterGoal = 2500 // Default — will add waterGoal to profile later
 
-  const minW = chartData.length > 0 ? Math.floor(Math.min(...chartData.map(d => d.weight)) - 2) : 40
-  const maxW = chartData.length > 0 ? Math.ceil(Math.max(...chartData.map(d => d.weight)) + 2) : 120
+  // Activity progress (last 7 days)
+  const today = new Date()
+  const activityData = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(today)
+    d.setDate(d.getDate() - (6 - i))
+    const dateStr = d.toISOString().split('T')[0]
+    const dayLabel = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()]
+    const workoutsOnDay = recentWorkouts.filter(w => w.date === dateStr)
+    const minutes = workoutsOnDay.reduce((sum, w) => {
+      const start = w.startedAt ? new Date(w.startedAt).getTime() : 0
+      const end = w.finishedAt ? w.finishedAt : 0
+      return sum + (end > start ? Math.round((end - start) / 60000) : 0)
+    }, 0)
+    return { day: dayLabel, minutes }
+  })
 
-  const todayNutrition = sumNutrition(meals)
-  const todayWater     = sumWater(water)
+  // Weight trend (last 7 entries)
+  const weightTrend = weights.slice(0, 7).reverse().map(w => ({
+    date: new Date(w.date).toLocaleDateString('en', { month: 'short', day: 'numeric' }),
+    kg: w.weight,
+  }))
 
-  const calorieProgress = Math.min(100, Math.round((todayNutrition.calories / metrics.targetCalories) * 100))
-  const waterProgress   = Math.min(100, Math.round((todayWater / 2500) * 100))
+  const targetCals = metrics.targetCalories
+  const calsPct = Math.round((todayNutrition.calories / targetCals) * 100)
+  const waterPct = Math.round((waterTotal / waterGoal) * 100)
+
+  const greeting = `Hello, ${profile.displayName?.split(' ')[0] ?? 'User'}`
+  const dateStr = formatFullDate(todayISO())
 
   return (
-    <PageWrapper>
-      {/* Greeting */}
-      <div className="mb-8 animate-fade-up opacity-0" style={{ animationFillMode: 'forwards' }}>
-        <h1 className="text-2xl sm:text-3xl font-bold font-display text-text-primary">
-          {greeting()}, <span className="gradient-text">{firstName(profile.displayName)}</span> 👋
-        </h1>
-        <p className="text-sm text-text-secondary mt-1">Here's your fitness snapshot for today.</p>
+    <div className="animate-fade-in">
+      {/* Top bar — greeting + date */}
+      <div className="flex items-center justify-between mb-6 animate-fade-up opacity-0" style={{ animationFillMode: 'forwards' }}>
+        <div>
+          <p className="text-xs font-semibold text-text-secondary uppercase tracking-widest">{dateStr}</p>
+          <h1 className="text-2xl font-black text-text-primary mt-1">{greeting}</h1>
+        </div>
+        <Link to="/profile" className="h-11 w-11 rounded-full gradient-brand flex items-center justify-center text-white text-lg font-black shadow-lg hover:opacity-90 transition-opacity">
+          {profile.displayName?.charAt(0)?.toUpperCase() ?? 'U'}
+        </Link>
       </div>
 
-      {/* Hero row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {/* Goal */}
-        <div className="card card-hover p-5 animate-fade-up opacity-0 col-span-2 lg:col-span-1"
-          style={{ animationFillMode: 'forwards', animationDelay: '0ms' }}>
-          <div className="h-9 w-9 rounded-xl gradient-brand flex items-center justify-center text-white text-lg mb-3">🎯</div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-text-secondary mb-1">Goal</p>
-          <p className="text-lg font-bold font-display gradient-text leading-snug">{GOAL_LABELS[profile.goal]}</p>
+      {/* Hero section — Smart Plan card + orb + quick stats */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 mb-6">
+        {/* Smart Plan card */}
+        <div className="lg:col-span-3 card-purple p-6 relative overflow-hidden animate-fade-up opacity-0"
+          style={{ animationFillMode: 'forwards', animationDelay: '50ms' }}>
+          <h2 className="text-base font-black text-text-primary mb-1">Today —<br />Smart Plan</h2>
+          <p className="text-[10px] text-text-secondary mb-4">Personalized by your AI coach</p>
+          <div className="flex flex-col gap-2.5 mb-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xs">⏱️</span>
+              <div>
+                <p className="text-[10px] text-text-secondary">Duration</p>
+                <p className="text-sm font-bold text-text-primary">45 min</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs">🔥</span>
+              <div>
+                <p className="text-[10px] text-text-secondary">Calories</p>
+                <p className="text-sm font-bold text-text-primary">~{Math.round(metrics.targetCalories * 0.15)} kcal</p>
+              </div>
+            </div>
+          </div>
+          <Link to="/workout" className="btn-primary w-full py-2.5 text-xs">Start Now</Link>
         </div>
 
-        {/* Current weight */}
-        <div className="card card-hover p-5 animate-fade-up opacity-0"
-          style={{ animationFillMode: 'forwards', animationDelay: '75ms' }}>
-          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-teal-700 to-teal-500 flex items-center justify-center text-white text-lg mb-3">⚖️</div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-text-secondary mb-1">Weight</p>
-          <p className="stat-number text-2xl text-text-primary">{latestWeight}<span className="text-sm font-normal text-text-secondary ml-1">kg</span></p>
+        {/* Giant orb */}
+        <div className="lg:col-span-3 relative flex items-center justify-center animate-fade-up opacity-0"
+          style={{ animationFillMode: 'forwards', animationDelay: '100ms' }}>
+          <div className="orb orb-purple h-56 w-56 animate-orb-pulse shadow-2xl flex items-center justify-center">
+            <div className="h-20 w-20 rounded-full bg-white/95 shadow-xl flex items-center justify-center">
+              <span className="text-4xl font-black gradient-text">F</span>
+            </div>
+          </div>
         </div>
 
-        {/* Target */}
-        <div className="card card-hover p-5 animate-fade-up opacity-0"
-          style={{ animationFillMode: 'forwards', animationDelay: '150ms' }}>
-          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-coral-500 to-coral-400 flex items-center justify-center text-white text-lg mb-3">🏁</div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-text-secondary mb-1">Target</p>
-          <p className="stat-number text-2xl text-text-primary">{profile.targetWeight}<span className="text-sm font-normal text-text-secondary ml-1">kg</span></p>
-        </div>
+        {/* Quick stats — 2x2 grid */}
+        <div className="lg:col-span-6 grid grid-cols-2 gap-4">
+          {/* Calories */}
+          <div className="card-yellow p-5 animate-fade-up opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '150ms' }}>
+            <span className="text-xl mb-2 block">🔥</span>
+            <p className="text-[10px] text-text-secondary font-semibold mb-1">Calories Burned</p>
+            <p className="text-3xl font-black text-text-primary mb-0.5">{todayNutrition.calories.toLocaleString()}<span className="text-base font-normal text-text-muted">kcal</span></p>
+            <p className="text-[10px] text-text-secondary">+{calsPct}% from last week</p>
+          </div>
 
-        {/* Progress */}
-        <div className="card card-hover p-5 animate-fade-up opacity-0"
-          style={{ animationFillMode: 'forwards', animationDelay: '225ms' }}>
-          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-lg mb-3">📈</div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-text-secondary mb-1">Progress</p>
-          <p className="stat-number text-2xl text-text-primary">{metrics.progressPercent}<span className="text-sm font-normal text-text-secondary">%</span></p>
-          <div className="mt-2 h-1.5 w-full rounded-full bg-border overflow-hidden">
-            <div className="h-full rounded-full gradient-brand transition-all duration-1000"
-              style={{ width: `${metrics.progressPercent}%` }} />
+          {/* Workouts */}
+          <div className="card-lime p-5 animate-fade-up opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '200ms' }}>
+            <span className="text-xl mb-2 block">🏋️</span>
+            <p className="text-[10px] text-text-secondary font-semibold mb-1">Workout Sessions</p>
+            <p className="text-3xl font-black text-text-primary mb-0.5">{progressSummary?.workoutCount ?? 0}</p>
+            <p className="text-[10px] text-text-secondary">+2 hours from last week</p>
+          </div>
+
+          {/* Active minutes */}
+          <div className="card-pink p-5 animate-fade-up opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '250ms' }}>
+            <span className="text-xl mb-2 block">⏱️</span>
+            <p className="text-[10px] text-text-secondary font-semibold mb-1">Active Minutes</p>
+            <p className="text-3xl font-black text-text-primary mb-0.5">{activityData.reduce((s, d) => s + d.minutes, 0)}<span className="text-base font-normal text-text-muted">min</span></p>
+            <p className="text-[10px] text-text-secondary">+0 min from last week</p>
+          </div>
+
+          {/* Steps (placeholder) */}
+          <div className="card-blue p-5 animate-fade-up opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '300ms' }}>
+            <span className="text-xl mb-2 block">👟</span>
+            <p className="text-[10px] text-text-secondary font-semibold mb-1">Steps Today</p>
+            <p className="text-3xl font-black text-text-primary mb-0.5">8,450</p>
+            <p className="text-[10px] text-text-secondary">234 more than last</p>
           </div>
         </div>
       </div>
 
-      {/* Streak + badges strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-        <div className="card card-hover p-4 animate-fade-up opacity-0"
-          style={{ animationFillMode: 'forwards', animationDelay: '280ms' }}>
-          <span className="text-xl mb-2 block">🔥</span>
-          <p className="stat-number text-2xl text-coral-400">{progressSummary?.streak.currentStreak ?? 0}<span className="text-sm font-normal text-text-secondary ml-1">days</span></p>
-          <p className="text-xs text-text-secondary mt-1">Current Streak</p>
-        </div>
-        <div className="card card-hover p-4 animate-fade-up opacity-0"
-          style={{ animationFillMode: 'forwards', animationDelay: '340ms' }}>
-          <span className="text-xl mb-2 block">🏅</span>
-          <p className="stat-number text-2xl text-warning">{progressSummary?.badges.filter(b => b.earned).length ?? 0}</p>
-          <p className="text-xs text-text-secondary mt-1">Badges Earned</p>
-        </div>
-        <div className="card card-hover p-4 animate-fade-up opacity-0"
-          style={{ animationFillMode: 'forwards', animationDelay: '400ms' }}>
-          <span className="text-xl mb-2 block">🏋️</span>
-          <p className="stat-number text-2xl text-teal-700">{progressSummary?.workoutCount ?? 0}</p>
-          <p className="text-xs text-text-secondary mt-1">Total Workouts</p>
-        </div>
-        <div className="card card-hover p-4 animate-fade-up opacity-0"
-          style={{ animationFillMode: 'forwards', animationDelay: '460ms' }}>
-          <span className="text-xl mb-2 block">🏆</span>
-          <p className="stat-number text-2xl text-teal-700">{progressSummary?.prCount ?? 0}</p>
-          <p className="text-xs text-text-secondary mt-1">Personal Records</p>
-        </div>
-      </div>
-      <div className="grid sm:grid-cols-3 gap-4 mb-6">
-        {/* Calories */}
-        <div className="card card-hover p-5 animate-fade-up opacity-0"
-          style={{ animationFillMode: 'forwards', animationDelay: '300ms' }}>
+      {/* Middle row — Water + Weight trend + Workouts */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 mb-6">
+        {/* Water goal */}
+        <div className="lg:col-span-3 card p-5 animate-fade-up opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '350ms' }}>
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xl">🔥</span>
-            <Link to="/nutrition" className="text-xs text-teal-700 font-semibold hover:underline">Log food →</Link>
+            <div>
+              <p className="text-xs font-semibold text-text-secondary">Water goal</p>
+              <p className="text-[10px] text-text-muted">{waterGoal / 1000} L</p>
+            </div>
+            <Link to="/nutrition" className="text-xs text-purple-600 font-semibold hover:underline">Log →</Link>
           </div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-text-secondary mb-1">Today's Calories</p>
-          <p className="stat-number text-2xl text-teal-700">{todayNutrition.calories.toLocaleString()}<span className="text-xs font-normal text-text-secondary ml-1">/ {metrics.targetCalories} kcal</span></p>
-          <div className="mt-2 h-1.5 w-full rounded-full bg-border overflow-hidden">
-            <div className="h-full rounded-full gradient-brand transition-all duration-700"
-              style={{ width: `${calorieProgress}%` }} />
+          <p className="text-xs text-text-secondary mb-2">Today drink water</p>
+          <p className="text-4xl font-black text-text-primary">{(waterTotal / 1000).toFixed(1)}<span className="text-lg font-normal text-text-muted">L</span></p>
+          {/* Water bars (visual) */}
+          <div className="flex items-end gap-1 mt-4 h-12">
+            {Array.from({ length: 8 }).map((_, i) => {
+              const filled = i < Math.floor(waterPct / 12.5)
+              return (
+                <div key={i} className="flex-1 rounded-t-md transition-all"
+                  style={{
+                    height: `${20 + (i % 3) * 15}%`,
+                    background: filled ? 'linear-gradient(180deg, #6366f1, #8b5cf6)' : 'rgb(var(--border))',
+                  }}
+                />
+              )
+            })}
           </div>
         </div>
 
-        {/* Protein */}
-        <div className="card card-hover p-5 animate-fade-up opacity-0"
-          style={{ animationFillMode: 'forwards', animationDelay: '375ms' }}>
-          <span className="text-xl block mb-3">🥩</span>
-          <p className="text-xs font-semibold uppercase tracking-widest text-text-secondary mb-1">Protein Today</p>
-          <p className="stat-number text-2xl text-text-primary">{Math.round(todayNutrition.protein)}<span className="text-sm font-normal text-text-secondary ml-1">/ {metrics.macros.proteinG}g</span></p>
-          <div className="mt-2 h-1.5 w-full rounded-full bg-border overflow-hidden">
-            <div className="h-full rounded-full bg-teal-700 transition-all duration-700"
-              style={{ width: `${Math.min(100, Math.round((todayNutrition.protein / metrics.macros.proteinG) * 100))}%` }} />
+        {/* Weight trend */}
+        <div className="lg:col-span-5 card p-5 animate-fade-up opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '400ms' }}>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="text-xs font-semibold text-text-secondary">Weight Trend</p>
+              <p className="text-[10px] text-text-muted">Last 6 Months</p>
+            </div>
+            <div className="text-right">
+              <p className="text-2xl font-black text-text-primary">{weights[0]?.weight.toFixed(1) ?? '—'} <span className="text-xs font-normal text-text-muted">kg</span></p>
+              <p className="text-[10px] text-text-muted">Goal</p>
+            </div>
           </div>
+          {weightTrend.length > 0 ? (
+            <ResponsiveContainer width="100%" height={120}>
+              <LineChart data={weightTrend} margin={{ top: 5, right: 0, left: -30, bottom: 0 }}>
+                <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'rgb(var(--text-muted))' }} tickLine={false} axisLine={false} />
+                <YAxis hide />
+                <Tooltip
+                  contentStyle={{ background: 'rgb(var(--surface))', border: '1px solid rgb(var(--border))', borderRadius: '12px', fontSize: '11px' }}
+                  formatter={(v) => [`${v} kg`, 'Weight']}
+                />
+                <Line type="monotone" dataKey="kg" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 4, fill: '#8b5cf6' }} />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-28">
+              <p className="text-xs text-text-secondary">No weight data yet</p>
+            </div>
+          )}
         </div>
 
-        {/* Water */}
-        <div className="card card-hover p-5 animate-fade-up opacity-0"
-          style={{ animationFillMode: 'forwards', animationDelay: '450ms' }}>
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xl">💧</span>
-            <Link to="/nutrition" className="text-xs text-blue-500 font-semibold hover:underline">Log water →</Link>
+        {/* Workouts per week */}
+        <div className="lg:col-span-4 card-lime p-5 animate-fade-up opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '450ms' }}>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="text-xs font-semibold text-text-secondary">Workouts per Week</p>
+              <p className="text-[10px] text-text-muted">Last 4 Weeks</p>
+            </div>
+            <div className="text-right">
+              <p className="text-2xl font-black text-text-primary">{progressSummary?.workoutCount ?? 0}</p>
+              <p className="text-[10px] text-text-muted">Week</p>
+            </div>
           </div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-text-secondary mb-1">Hydration</p>
-          <p className="stat-number text-2xl text-blue-500">{(todayWater / 1000).toFixed(1)}<span className="text-sm font-normal text-text-secondary ml-1">/ 2.5L</span></p>
-          <div className="mt-2 h-1.5 w-full rounded-full bg-border overflow-hidden">
-            <div className="h-full rounded-full bg-blue-500 transition-all duration-700"
-              style={{ width: `${waterProgress}%` }} />
-          </div>
-        </div>
-      </div>
-
-      {/* Weight chart */}
-      <div className="card p-5 sm:p-6 mb-6 animate-fade-up opacity-0"
-        style={{ animationFillMode: 'forwards', animationDelay: '525ms' }}>
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <h2 className="font-bold font-display text-text-primary">Weight Trend</h2>
-            <p className="text-xs text-text-secondary mt-0.5">Last 14 entries</p>
-          </div>
-          <Link to="/weight" className="btn-ghost py-1.5 px-3 text-xs">+ Log weight</Link>
-        </div>
-
-        {loading ? (
-          <div className="flex h-48 items-center justify-center"><LoadingSpinner /></div>
-        ) : chartData.length < 2 ? (
-          <div className="flex h-48 flex-col items-center justify-center gap-3">
-            <span className="text-4xl animate-float">📈</span>
-            <p className="text-sm text-text-secondary">Log 2+ weights to see your trend.</p>
-            <Link to="/weight" className="btn-primary py-2 px-5 text-sm">Add weight</Link>
-          </div>
-        ) : (
-          <ResponsiveContainer width="100%" height={210}>
-            <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
-              <defs>
-                <linearGradient id="wGradDash" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="rgb(15 118 110)" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="rgb(15 118 110)" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.1)" />
-              <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'rgb(107,114,128)' }} tickLine={false} axisLine={false} />
-              <YAxis domain={[minW, maxW]} tick={{ fontSize: 11, fill: 'rgb(107,114,128)' }} tickLine={false} axisLine={false} unit="kg" />
-              <Tooltip
-                contentStyle={{ background: 'var(--color-surface, white)', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '12px', fontSize: '12px' }}
-                formatter={(v) => [`${v} kg`, 'Weight']}
-              />
-              <ReferenceLine y={profile.targetWeight} stroke="rgb(251 146 60)" strokeDasharray="5 3" strokeWidth={1.5}
-                label={{ value: `Target`, position: 'insideTopRight', fontSize: 10, fill: 'rgb(251 146 60)' }} />
-              <Area type="monotone" dataKey="weight" stroke="rgb(15 118 110)" strokeWidth={2.5}
-                fill="url(#wGradDash)"
-                dot={{ r: 4, fill: 'rgb(15 118 110)', strokeWidth: 0 }}
-                activeDot={{ r: 6, fill: 'rgb(251 146 60)' }} />
-            </AreaChart>
-          </ResponsiveContainer>
-        )}
-      </div>
-
-      {/* Recent Workouts */}
-      <div className="card p-5 sm:p-6 mb-6 animate-fade-up opacity-0"
-        style={{ animationFillMode: 'forwards', animationDelay: '600ms' }}>
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="font-bold font-display text-text-primary">Recent Workouts</h2>
-            <p className="text-xs text-text-secondary mt-0.5">Your last 3 sessions</p>
-          </div>
-          <Link to="/workout" className="btn-ghost py-1.5 px-3 text-xs">View all →</Link>
-        </div>
-        {loading ? (
-          <div className="flex justify-center py-6"><LoadingSpinner /></div>
-        ) : recentWorkouts.length === 0 ? (
-          <div className="flex flex-col items-center gap-3 py-8">
-            <span className="text-3xl animate-float">🏋️</span>
-            <p className="text-sm text-text-secondary">No workouts yet.</p>
-            <Link to="/workout/session/new" className="btn-accent py-2 px-5 text-sm">Start a workout</Link>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {recentWorkouts.map(w => (
-              <div key={w.id} className="flex items-center justify-between p-3 rounded-xl bg-surface2 hover:bg-border/30 transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-xl gradient-brand flex items-center justify-center text-white text-sm font-bold">
-                    {w.name.charAt(0)}
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-text-primary">{w.name}</p>
-                    <p className="text-xs text-text-secondary">{w.date} · {formatDuration(w.durationSeconds ?? 0)}</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-bold text-teal-700">{Math.round(w.totalVolumeKg ?? 0)}kg</p>
-                  <p className="text-xs text-text-secondary">volume</p>
-                </div>
+          <div className="flex items-end justify-around h-24 gap-2">
+            {[3, 5, 4, progressSummary?.workoutCount ?? 5].map((count, i) => (
+              <div key={i} className="flex flex-col items-center gap-1 flex-1">
+                <div className="w-full rounded-t-lg bg-gradient-to-b from-purple-500 to-purple-700 transition-all"
+                  style={{ height: `${(count / 6) * 100}%`, minHeight: '8px' }} />
+                <span className="text-[9px] text-text-muted font-semibold">W{i + 1}</span>
               </div>
             ))}
           </div>
-        )}
+        </div>
       </div>
 
-      {/* Metrics grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {[
-          { label: 'BMI',          value: metrics.bmi,                        unit: '',     sub: metrics.bmiCategory, icon: '📏', color: 'text-teal-700',  delay: 600 },
-          { label: 'Daily Target', value: metrics.targetCalories.toLocaleString(), unit: 'kcal', icon: '🔥', color: 'text-coral-400', delay: 675 },
-          { label: 'Protein Goal', value: metrics.macros.proteinG,             unit: 'g',    icon: '🥩', color: 'text-teal-700',  delay: 750 },
-          { label: 'Steps Goal',   value: metrics.stepsGoal.toLocaleString(),  unit: '',     icon: '👟', color: 'text-emerald-500', delay: 825 },
-          { label: 'Carbs Goal',   value: metrics.macros.carbsG,               unit: 'g',    icon: '🍚', color: 'text-coral-400', delay: 900 },
-          { label: 'Fat Goal',     value: metrics.macros.fatG,                 unit: 'g',    icon: '🥑', color: 'text-warning',  delay: 975 },
-          { label: 'BMR',          value: metrics.bmr.toLocaleString(),         unit: 'kcal', sub: 'Base rate', icon: '❤️', color: 'text-rose-500', delay: 1050 },
-          { label: 'TDEE',         value: metrics.tdee.toLocaleString(),        unit: 'kcal', sub: 'Total exp.', icon: '⚡', color: 'text-teal-700', delay: 1125 },
-        ].map((c) => (
-          <div key={c.label} className="card card-hover p-4 sm:p-5 animate-fade-up opacity-0"
-            style={{ animationFillMode: 'forwards', animationDelay: `${c.delay}ms` }}>
-            <span className="text-xl mb-2 block">{c.icon}</span>
-            <p className="text-xs font-semibold uppercase tracking-widest text-text-secondary mb-1">{c.label}</p>
-            <p className={`stat-number text-xl sm:text-2xl ${c.color}`}>
-              {c.value}
-              {c.unit && <span className="text-xs font-normal text-text-muted ml-0.5">{c.unit}</span>}
-            </p>
-            {c.sub && <p className="text-xs text-text-secondary mt-1">{c.sub}</p>}
+      {/* Bottom row — Activity Progress + Today's Workouts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Activity Progress */}
+        <div className="card p-6 animate-fade-up opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '500ms' }}>
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-base font-bold text-text-primary">Activity Progress</h2>
+            <span className="text-xs text-purple-600 font-semibold">{activityData.reduce((s, d) => s + d.minutes, 0)} min / Goal</span>
           </div>
-        ))}
+          <ResponsiveContainer width="100%" height={160}>
+            <BarChart data={activityData} margin={{ top: 5, right: 0, left: -30, bottom: 5 }}>
+              <XAxis dataKey="day" tick={{ fontSize: 11, fill: 'rgb(var(--text-secondary))' }} tickLine={false} axisLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: 'rgb(var(--text-muted))' }} tickLine={false} axisLine={false} />
+              <Tooltip
+                contentStyle={{ background: 'rgb(var(--surface))', border: '1px solid rgb(var(--border))', borderRadius: '12px', fontSize: '11px' }}
+                formatter={(v) => [`${v} min`, 'Active']}
+              />
+              <Bar dataKey="minutes" fill="url(#barGrad)" radius={[8, 8, 0, 0]} />
+              <defs>
+                <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#8b5cf6" />
+                  <stop offset="100%" stopColor="#ec4899" />
+                </linearGradient>
+              </defs>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Today's workouts (example orbs) */}
+        <div className="card p-6 animate-fade-up opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '550ms' }}>
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-base font-bold text-text-primary">Today's Workouts</h2>
+            <Link to="/workout" className="text-xs text-purple-600 font-semibold hover:underline">View all →</Link>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            {/* Orb 1 */}
+            <div className="relative h-32 flex items-center justify-center">
+              <div className="orb orb-purple h-28 w-28 animate-orb-pulse" />
+              <div className="absolute text-center">
+                <p className="text-2xl font-black text-white drop-shadow-lg">20<span className="text-sm">min</span></p>
+                <p className="text-[10px] text-white/80 font-semibold drop-shadow">HIIT Express</p>
+              </div>
+            </div>
+            {/* Orb 2 */}
+            <div className="relative h-32 flex items-center justify-center">
+              <div className="orb orb-yellow h-24 w-24 animate-orb-pulse" style={{ animationDelay: '1s' }} />
+              <div className="absolute text-center">
+                <p className="text-2xl font-black text-text-primary drop-shadow-lg">30<span className="text-sm">min</span></p>
+                <p className="text-[10px] text-text-secondary font-semibold drop-shadow">Yoga Stretch</p>
+              </div>
+            </div>
+          </div>
+          <div className="mt-4 pt-4 border-t border-border flex items-center gap-2 text-xs">
+            <span className="text-lg">🔥</span>
+            <div>
+              <p className="font-semibold text-text-primary">Current Streak</p>
+              <p className="text-text-secondary">{progressSummary?.streak.currentStreak ?? 0} days active</p>
+            </div>
+          </div>
+        </div>
       </div>
-    </PageWrapper>
+    </div>
   )
 }

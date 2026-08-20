@@ -42,10 +42,36 @@ export async function updateUserProfile(
   updates: Partial<UserProfile>,
 ): Promise<void> {
   const ref = doc(db, 'users', uid)
+  
+  // Check if document exists, create if missing
+  const snap = await getDoc(ref)
+  if (!snap.exists()) {
+    // Create document with updates
+    await setDoc(ref, {
+      ...stripUndefined(updates),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    })
+    return
+  }
+  
+  // Strip undefined fields to prevent Firestore error
+  const cleanUpdates = stripUndefined(updates)
   await updateDoc(ref, {
-    ...updates,
+    ...cleanUpdates,
     updatedAt: serverTimestamp(),
   })
+}
+
+/** Remove undefined fields from an object to prevent Firestore errors */
+function stripUndefined<T extends Record<string, any>>(obj: T): Partial<T> {
+  const clean: any = {}
+  for (const key in obj) {
+    if (obj[key] !== undefined) {
+      clean[key] = obj[key]
+    }
+  }
+  return clean
 }
 
 // ─── Weight Entries ───────────────────────────────────────────────────────────

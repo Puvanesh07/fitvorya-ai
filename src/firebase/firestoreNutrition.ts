@@ -11,9 +11,18 @@ export async function addMealEntry(
   uid: string,
   entry: Omit<MealEntry, 'id' | 'loggedAt'>,
 ): Promise<string> {
+  // Strip undefined fields from foodItem to avoid Firestore rejection
+  const cleanFoodItem: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(entry.foodItem)) {
+    if (v !== undefined) cleanFoodItem[k] = v
+  }
+
   const ref = collection(db, 'users', uid, 'meals')
   const docRef = await addDoc(ref, {
-    ...entry,
+    foodItem: cleanFoodItem,
+    grams: entry.grams,
+    meal: entry.meal,
+    date: entry.date,
     loggedAt: serverTimestamp(),
   })
   return docRef.id
