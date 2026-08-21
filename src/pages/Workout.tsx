@@ -36,7 +36,7 @@ export default function Workout() {
       .finally(() => setLoading(false))
   }, [profile])
 
-  if (loading) return <PageLoader />
+  if (loading) return <PageLoader variant="workout" />
 
   const activeDays    = heatmap.filter(d => d.count > 0).length
   const totalWorkouts = heatmap.reduce((s, d) => s + d.count, 0)

@@ -8,91 +8,85 @@ interface Props {
   tamilPref: boolean
 }
 
+const TRIM_COLORS: Record<number, { glow: string; accent: string; text: string }> = {
+  1: { glow: 'rgb(139 92 246 / 0.16)',  accent: 'rgb(139 92 246)', text: 'rgb(196 181 253)' },
+  2: { glow: 'rgb(244 114 182 / 0.16)', accent: 'rgb(244 114 182)',text: 'rgb(249 168 212)' },
+  3: { glow: 'rgb(251 146 60 / 0.16)',  accent: 'rgb(251 146 60)', text: 'rgb(253 186 116)' },
+}
+
 export default function PregnancyWeeklyGuide({ stage, monthGuide, weekGuide, tamilPref }: Props) {
-  const [expandedSection, setExpandedSection] = useState<string | null>('baby')
-
-  function toggle(id: string) {
-    setExpandedSection(prev => prev === id ? null : id)
-  }
-
-  const trimColors = {
-    1: { bg: 'from-violet-500 to-purple-500', light: 'bg-violet-50 dark:bg-violet-900/20', border: 'border-violet-200 dark:border-violet-700', text: 'text-violet-700 dark:text-violet-300' },
-    2: { bg: 'from-pink-500 to-rose-500',     light: 'bg-pink-50 dark:bg-pink-900/20',     border: 'border-pink-200 dark:border-pink-700',     text: 'text-pink-700 dark:text-pink-300' },
-    3: { bg: 'from-orange-500 to-amber-500',  light: 'bg-orange-50 dark:bg-orange-900/20', border: 'border-orange-200 dark:border-orange-700', text: 'text-orange-700 dark:text-orange-300' },
-  }[stage.trimester]
+  const [open, setOpen] = useState<string | null>('baby')
+  const toggle = (id: string) => setOpen(p => p === id ? null : id)
+  const tc = TRIM_COLORS[stage.trimester]
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
 
-      {/* Week header card */}
-      <div className={`rounded-3xl bg-gradient-to-br ${trimColors.bg} p-5 text-white card-shadow`}>
+      {/* Week header */}
+      <div className="g-card p-4 animate-slide-up" style={{
+        background: tc.glow, borderColor: `${tc.accent}44`,
+        boxShadow: `0 4px 20px ${tc.glow}`,
+      }}>
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-white/70 text-xs font-semibold uppercase tracking-wider mb-1">
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: tc.text, opacity: 0.7 }}>
               {monthGuide.title}
             </p>
-            <h2 className="text-2xl font-black">Week {stage.week}</h2>
-            <p className="text-white/80 text-sm mt-0.5">{monthGuide.weeks}</p>
+            <h2 className="text-xl font-black text-text-primary">Week {stage.week}</h2>
+            <p className="text-xs mt-0.5" style={{ color: tc.text }}>{monthGuide.weeks}</p>
           </div>
-          <div className="text-5xl select-none">🤰</div>
+          <span className="text-4xl select-none">🤰</span>
         </div>
 
         {/* Nutrition focus pills */}
-        <div className="flex flex-wrap gap-1.5 mt-4">
+        <div className="flex flex-wrap gap-1.5 mt-3">
           {monthGuide.nutritionFocus.map(n => (
-            <span key={n} className="px-2.5 py-1 bg-white/20 rounded-full text-xs font-semibold backdrop-blur-sm">
+            <span key={n} className="g-badge" style={{ background: `${tc.accent}18`, borderColor: `${tc.accent}33`, color: tc.text }}>
               {n}
             </span>
           ))}
         </div>
 
         {/* Hydration */}
-        <div className="flex items-center gap-2 mt-3 bg-white/15 rounded-2xl px-3 py-2">
-          <span className="text-lg">💧</span>
-          <p className="text-sm text-white/90">{monthGuide.hydration}</p>
+        <div className="flex items-center gap-2 mt-3 px-3 py-2 rounded-xl"
+          style={{ background: 'rgb(255 255 255 / 0.08)', border: '1px solid rgb(255 255 255 / 0.1)' }}>
+          <span className="text-base">💧</span>
+          <p className="text-xs text-text-secondary">{monthGuide.hydration}</p>
         </div>
       </div>
 
       {/* Week highlight */}
-      <div className={`rounded-2xl p-4 border ${trimColors.light} ${trimColors.border}`}>
-        <p className="text-sm font-semibold text-text-primary leading-relaxed">{weekGuide.highlights}</p>
+      <div className="g-card-sm p-3" style={{ background: `${tc.accent}10`, borderColor: `${tc.accent}28` }}>
+        <p className="text-xs text-text-secondary leading-relaxed">{weekGuide.highlights}</p>
       </div>
 
-      {/* Expandable sections */}
+      {/* Accordion sections */}
       {[
         {
-          id: 'baby',
-          emoji: '👶',
-          title: 'Baby Development',
+          id: 'baby', emoji: '👶', title: 'Baby Development',
           content: (
-            <p className="text-sm text-text-secondary leading-relaxed">{monthGuide.babyDevelopment}</p>
+            <p className="text-xs text-text-secondary leading-relaxed">{monthGuide.babyDevelopment}</p>
           ),
         },
         {
-          id: 'mother',
-          emoji: '🤱',
-          title: "What's Happening to You",
+          id: 'mother', emoji: '🤱', title: "What's Happening to You",
           content: (
-            <p className="text-sm text-text-secondary leading-relaxed">{monthGuide.motherChanges}</p>
+            <p className="text-xs text-text-secondary leading-relaxed">{monthGuide.motherChanges}</p>
           ),
         },
         {
-          id: 'nutrients',
-          emoji: '💊',
-          title: 'Key Nutrients This Month',
+          id: 'nutrients', emoji: '💊', title: 'Key Nutrients This Month',
           content: (
             <div className="flex flex-col gap-3">
               {monthGuide.keyNutrients.map(n => (
-                <div key={n.name} className="flex gap-3">
-                  <span className="text-2xl flex-shrink-0">{n.emoji}</span>
+                <div key={n.name} className="flex gap-2.5">
+                  <span className="text-xl flex-shrink-0">{n.emoji}</span>
                   <div>
-                    <p className="text-sm font-bold text-text-primary">{n.name}</p>
-                    <p className="text-xs text-text-secondary mb-1">{n.reason}</p>
+                    <p className="text-xs font-bold text-text-primary">{n.name}</p>
+                    <p className="text-[11px] text-text-muted mb-1.5">{n.reason}</p>
                     <div className="flex flex-wrap gap-1">
                       {n.sources.map(s => (
-                        <span key={s} className="px-2 py-0.5 bg-surface2 rounded-full text-xs text-text-secondary border border-border">
-                          {s}
-                        </span>
+                        <span key={s} className="g-badge text-[10px]">{s}</span>
                       ))}
                     </div>
                   </div>
@@ -102,18 +96,16 @@ export default function PregnancyWeeklyGuide({ stage, monthGuide, weekGuide, tam
           ),
         },
         {
-          id: 'meals',
-          emoji: '🍽️',
-          title: "Today's Meal Ideas",
+          id: 'meals', emoji: '🍽️', title: "Today's Meal Ideas",
           content: (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {weekGuide.mealIdeas.map((m, i) => (
-                <div key={i} className="flex gap-2 p-3 bg-surface2 rounded-2xl border border-border">
+                <div key={i} className="g-card-sm p-2.5 flex gap-2">
                   <span className="text-xl flex-shrink-0">{m.emoji}</span>
                   <div>
-                    <p className="text-xs font-bold text-text-secondary uppercase">{m.time}</p>
-                    <p className="text-sm font-semibold text-text-primary">{m.name}</p>
-                    <p className="text-xs text-text-muted">{m.description}</p>
+                    <p className="text-[10px] font-bold text-text-muted uppercase tracking-wide">{m.time}</p>
+                    <p className="text-xs font-bold text-text-primary">{m.name}</p>
+                    <p className="text-[11px] text-text-muted leading-relaxed">{m.description}</p>
                   </div>
                 </div>
               ))}
@@ -121,68 +113,52 @@ export default function PregnancyWeeklyGuide({ stage, monthGuide, weekGuide, tam
           ),
         },
         {
-          id: 'tamil',
-          emoji: '🍚',
-          title: tamilPref ? 'Tamil Traditional Foods This Month' : 'Suggested Foods This Month',
+          id: 'foods', emoji: '🍚', title: tamilPref ? 'Tamil Traditional Foods' : 'Suggested Foods',
           content: (
             <div className="flex flex-col gap-3">
               {tamilPref && (
                 <div>
-                  <p className="text-xs font-bold text-orange-600 dark:text-orange-400 mb-1.5">🍚 Tamil Traditional</p>
+                  <p className="text-[10px] font-bold mb-1.5" style={{ color: 'rgb(253 186 116)' }}>🍚 Tamil Traditional</p>
                   <div className="flex flex-wrap gap-1.5">
                     {monthGuide.tamilFoods.map(f => (
-                      <span key={f} className="px-2.5 py-1 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-full text-xs font-medium text-orange-700 dark:text-orange-300">
-                        {f}
-                      </span>
+                      <span key={f} className="g-badge" style={{ background: 'rgb(251 146 60 / 0.12)', borderColor: 'rgb(251 146 60 / 0.25)', color: 'rgb(253 186 116)' }}>{f}</span>
                     ))}
                   </div>
                 </div>
               )}
               <div>
-                <p className="text-xs font-bold text-blue-600 dark:text-blue-400 mb-1.5">🌍 Global Foods</p>
+                <p className="text-[10px] font-bold mb-1.5" style={{ color: 'rgb(125 211 252)' }}>🌍 Global Foods</p>
                 <div className="flex flex-wrap gap-1.5">
                   {monthGuide.globalFoods.map(f => (
-                    <span key={f} className="px-2.5 py-1 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-full text-xs font-medium text-blue-700 dark:text-blue-300">
-                      {f}
-                    </span>
+                    <span key={f} className="g-badge" style={{ background: 'rgb(56 189 248 / 0.1)', borderColor: 'rgb(56 189 248 / 0.22)', color: 'rgb(125 211 252)' }}>{f}</span>
                   ))}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <p className="text-xs font-bold text-green-600 dark:text-green-400 mb-1.5">🍎 Fruits</p>
-                  <div className="flex flex-col gap-1">
-                    {monthGuide.fruits.map(f => (
-                      <span key={f} className="text-xs text-text-secondary">• {f}</span>
-                    ))}
-                  </div>
+                  <p className="text-[10px] font-bold mb-1" style={{ color: 'rgb(110 231 183)' }}>🍎 Fruits</p>
+                  {monthGuide.fruits.map(f => <p key={f} className="text-[11px] text-text-muted">• {f}</p>)}
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 mb-1.5">🥬 Vegetables</p>
-                  <div className="flex flex-col gap-1">
-                    {monthGuide.vegetables.map(v => (
-                      <span key={v} className="text-xs text-text-secondary">• {v}</span>
-                    ))}
-                  </div>
+                  <p className="text-[10px] font-bold mb-1" style={{ color: 'rgb(94 234 212)' }}>🥬 Vegetables</p>
+                  {monthGuide.vegetables.map(v => <p key={v} className="text-[11px] text-text-muted">• {v}</p>)}
                 </div>
               </div>
             </div>
           ),
         },
         {
-          id: 'wellness',
-          emoji: '🧘',
-          title: 'Wellness Tips',
+          id: 'wellness', emoji: '🧘', title: 'Wellness Tips',
           content: (
             <div className="flex flex-col gap-2">
-              <p className="text-sm text-text-secondary leading-relaxed">💪 {weekGuide.nutritionTip}</p>
-              <p className="text-sm text-text-secondary leading-relaxed">🧘 {weekGuide.wellnessTip}</p>
+              <p className="text-xs text-text-secondary leading-relaxed">💪 {weekGuide.nutritionTip}</p>
+              <p className="text-xs text-text-secondary leading-relaxed">🧘 {weekGuide.wellnessTip}</p>
               {monthGuide.symptomsToNote.length > 0 && (
                 <div className="mt-1">
-                  <p className="text-xs font-bold text-text-primary mb-1">Common symptoms this month:</p>
+                  <p className="text-[10px] font-bold text-text-muted mb-1.5">Common symptoms this month:</p>
                   <div className="flex flex-wrap gap-1">
                     {monthGuide.symptomsToNote.map(s => (
-                      <span key={s} className="px-2 py-0.5 bg-surface2 rounded-full text-xs text-text-secondary border border-border">{s}</span>
+                      <span key={s} className="g-badge">{s}</span>
                     ))}
                   </div>
                 </div>
@@ -191,47 +167,40 @@ export default function PregnancyWeeklyGuide({ stage, monthGuide, weekGuide, tam
           ),
         },
         {
-          id: 'cautions',
-          emoji: '⚠️',
-          title: 'Foods to Be Cautious About',
+          id: 'cautions', emoji: '⚠️', title: 'Foods to Be Cautious About',
           content: (
             <div className="flex flex-col gap-2">
               {monthGuide.cautions.map((c, i) => (
-                <div key={i} className="flex gap-2 text-sm text-text-secondary">
-                  <span className="text-orange-500 flex-shrink-0">•</span>
+                <div key={i} className="flex gap-2 text-xs text-text-secondary">
+                  <span className="flex-shrink-0" style={{ color: 'rgb(253 186 116)' }}>•</span>
                   <span>{c}</span>
                 </div>
               ))}
               {monthGuide.doctorNote && (
-                <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-xl">
-                  <p className="text-xs font-bold text-blue-700 dark:text-blue-400 mb-0.5">👩‍⚕️ Doctor / Midwife Note</p>
-                  <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">{monthGuide.doctorNote}</p>
+                <div className="g-card-sm p-2.5 mt-1" style={{ background: 'rgb(56 189 248 / 0.07)', borderColor: 'rgb(56 189 248 / 0.18)' }}>
+                  <p className="text-[10px] font-bold text-sky-300 mb-0.5">👩‍⚕️ Doctor / Midwife Note</p>
+                  <p className="text-[11px] text-sky-300/70 leading-relaxed">{monthGuide.doctorNote}</p>
                 </div>
               )}
-              <div className="mt-1 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl">
-                <p className="text-xs text-amber-800 dark:text-amber-300">
-                  ⚠️ This is general information only. Always follow advice from your qualified healthcare provider.
-                </p>
+              <div className="g-disclaimer mt-1">
+                ⚠️ General information only. Always follow advice from your qualified healthcare provider.
               </div>
             </div>
           ),
         },
       ].map(section => (
-        <div key={section.id} className="card card-shadow">
-          <button
-            onClick={() => toggle(section.id)}
-            className="w-full flex items-center justify-between gap-3 text-left"
-          >
-            <div className="flex items-center gap-2.5">
-              <span className="text-xl">{section.emoji}</span>
-              <span className="font-bold text-text-primary text-sm">{section.title}</span>
+        <div key={section.id} className="g-card p-3 transition-all">
+          <button onClick={() => toggle(section.id)}
+            className="w-full flex items-center justify-between gap-2 text-left">
+            <div className="flex items-center gap-2">
+              <span className="text-base">{section.emoji}</span>
+              <span className="font-bold text-text-primary text-xs">{section.title}</span>
             </div>
-            <span className={`text-text-muted transition-transform duration-200 ${expandedSection === section.id ? 'rotate-180' : ''}`}>
-              ▾
-            </span>
+            <span className="text-text-muted text-xs transition-transform duration-200"
+              style={{ transform: open === section.id ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
           </button>
-          {expandedSection === section.id && (
-            <div className="mt-4 pt-4 border-t border-border animate-fade-in">
+          {open === section.id && (
+            <div className="mt-3 pt-3 animate-slide-up" style={{ borderTop: '1px solid rgb(255 255 255 / 0.06)' }}>
               {section.content}
             </div>
           )}

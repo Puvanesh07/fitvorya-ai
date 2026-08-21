@@ -61,7 +61,7 @@ export default function Nutrition() {
     entries: meals.filter(m => m.meal === type),
   }))
 
-  if (loading) return <PageLoader />
+  if (loading) return <PageLoader variant="nutrition" />
 
   async function handleAddWater(ml: number) { await logWater(uid, ml, date); load() }
   async function handleDeleteMeal(id: string) { await removeMeal(uid, id); load() }

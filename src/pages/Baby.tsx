@@ -14,6 +14,7 @@ import BabyFoodCategories   from '../components/baby/BabyFoodCategories'
 import BabyFoodIntroTracker from '../components/baby/BabyFoodIntroTracker'
 import BabyMealPlanner      from '../components/baby/BabyMealPlanner'
 import BabyAIChat           from '../components/baby/BabyAIChat'
+import PageLoader            from '../components/PageLoader'
 
 type TabId = 'guide' | 'foods' | 'tracker' | 'planner' | 'ai'
 
@@ -23,6 +24,13 @@ const TABS: { id: TabId; emoji: string; label: string }[] = [
   { id: 'tracker', emoji: '✅', label: 'Tracker'   },
   { id: 'planner', emoji: '📅', label: 'Meal Plan' },
   { id: 'ai',      emoji: '🤖', label: 'AI Coach'  },
+]
+
+const FEATURES = [
+  { emoji: '🍼', title: '5 Age Stages',     desc: '0–6m through 2–3 years',       color: 'rgb(56 189 248 / 0.12)',  border: 'rgb(56 189 248 / 0.22)'  },
+  { emoji: '🍚', title: 'Tamil Baby Foods', desc: 'Ragi, kambu, idli & more',      color: 'rgb(132 204 22 / 0.1)',   border: 'rgb(132 204 22 / 0.2)'   },
+  { emoji: '✅', title: 'Allergen Tracker', desc: 'Log introductions safely',       color: 'rgb(234 179 8 / 0.1)',    border: 'rgb(234 179 8 / 0.2)'    },
+  { emoji: '🤖', title: 'AI Baby Coach',    desc: 'Gemini-powered personal advice', color: 'rgb(139 92 246 / 0.12)', border: 'rgb(139 92 246 / 0.22)'  },
 ]
 
 export default function Baby() {
@@ -47,7 +55,9 @@ export default function Baby() {
   async function handleSave(p: BabyProfile) {
     if (!user) return
     await saveBabyProfile(user.uid, p)
-    setProfile(p); setSelectedStageId(getStageIdForAge(calculateAgeMonths(p.dateOfBirth))); setShowSetup(false)
+    setProfile(p)
+    setSelectedStageId(getStageIdForAge(calculateAgeMonths(p.dateOfBirth)))
+    setShowSetup(false)
   }
 
   const ageMonths      = profile ? calculateAgeMonths(profile.dateOfBirth) : 0
@@ -56,61 +66,61 @@ export default function Baby() {
   const selectedStage  = getStageById(selectedStageId)
   const selectedGuide  = getStageGuide(selectedStageId)
 
+  /* ── Loading ── */
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-16 w-16 rounded-2xl gradient-brand animate-pulse shadow-xl" />
-          <p className="text-text-secondary text-sm font-semibold">Loading baby dashboard…</p>
-        </div>
-      </div>
-    )
+    return <PageLoader variant="baby" />
   }
 
+  /* ── No profile — landing ── */
   if (!profile) {
     return (
       <>
         {showSetup && <BabySetup existing={null} onSave={handleSave} onCancel={() => setShowSetup(false)} />}
-        <div className="max-w-2xl mx-auto py-16 flex flex-col items-center text-center gap-8 animate-fade-up">
 
+        <div className="max-w-lg mx-auto py-12 flex flex-col items-center text-center gap-7 animate-slide-up px-4">
+
+          {/* Hero icon */}
           <div className="relative">
-            <div className="w-28 h-28 rounded-3xl card-blue flex items-center justify-center text-6xl" style={{ boxShadow: '0 8px 32px rgba(96,165,250,0.25)' }}>👶</div>
-            <div className="absolute -top-2 -right-2 w-9 h-9 rounded-xl card-pink flex items-center justify-center text-xl shadow-lg">✨</div>
+            <div className="w-24 h-24 rounded-3xl flex items-center justify-center text-5xl"
+              style={{ background: 'rgb(32 195 190 / 0.12)', border: '1px solid rgb(32 195 190 / 0.25)', boxShadow: '0 8px 32px rgb(32 195 190 / 0.2)' }}>
+              👶
+            </div>
+            <div className="absolute -top-2 -right-2 w-8 h-8 rounded-xl gradient-brand flex items-center justify-center text-white text-sm"
+              style={{ boxShadow: '0 4px 14px rgb(108 65 210 / 0.5)' }}>✨</div>
           </div>
 
+          {/* Copy */}
           <div>
-            <h1 className="text-3xl font-black text-text-primary mb-3 tracking-tight">
-              AI Baby & Toddler Nutrition Coach
+            <h1 className="text-2xl font-black text-text-primary mb-2 tracking-tight">
+              AI Baby & Toddler<br />
+              <span className="gradient-text">Nutrition Coach</span>
             </h1>
-            <p className="text-text-secondary leading-relaxed max-w-md text-sm">
+            <p className="text-text-secondary leading-relaxed text-sm max-w-sm mx-auto">
               Age-appropriate food guidance, Tamil traditional baby foods, safe texture progression,
               allergen introduction tracker, and Gemini AI coach — all in one place.
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 w-full max-w-md">
-            {[
-              { emoji: '🍼', title: '5 Age Stages',     desc: '0–6m through 2–3 years',   color: 'card-blue'   },
-              { emoji: '🍚', title: 'Tamil Baby Foods', desc: 'Ragi, kambu, idli & more',  color: 'card-lime'   },
-              { emoji: '✅', title: 'Allergen Tracker', desc: 'Log food introductions safely', color: 'card-yellow' },
-              { emoji: '🤖', title: 'AI Baby Coach',    desc: 'Gemini-powered advice',     color: 'card-purple' },
-            ].map(f => (
-              <div key={f.title} className={`${f.color} p-5 rounded-2xl text-left shadow-md`}>
+          {/* Feature grid */}
+          <div className="grid grid-cols-2 gap-3 w-full">
+            {FEATURES.map(f => (
+              <div key={f.title} className="g-card p-4 text-left"
+                style={{ background: f.color, borderColor: f.border }}>
                 <span className="text-2xl block mb-2">{f.emoji}</span>
                 <p className="font-black text-text-primary text-sm">{f.title}</p>
-                <p className="text-xs text-text-secondary mt-0.5">{f.desc}</p>
+                <p className="text-xs text-text-muted mt-0.5">{f.desc}</p>
               </div>
             ))}
           </div>
 
-          <div className="w-full max-w-md card-yellow p-5 rounded-2xl text-left shadow-md">
-            <p className="text-xs text-text-secondary leading-relaxed">
-              ⚠️ <strong>Health disclaimer:</strong> FitTracker provides general nutrition information only.
-              Always consult your paediatrician for personalised guidance on feeding your baby.
-            </p>
+          {/* Disclaimer */}
+          <div className="g-disclaimer w-full text-left">
+            ⚠️ <strong>Health disclaimer:</strong> FitTracker provides general nutrition information only.
+            Always consult your paediatrician for personalised guidance.
           </div>
 
-          <button onClick={() => setShowSetup(true)} className="btn-purple py-4 px-10 text-base shadow-xl flex items-center gap-2">
+          <button onClick={() => setShowSetup(true)}
+            className="g-btn g-btn-teal py-3.5 px-10 text-sm shadow-xl">
             👶 Start Baby Journey
           </button>
         </div>
@@ -118,29 +128,31 @@ export default function Baby() {
     )
   }
 
+  /* ── Dashboard ── */
   return (
     <>
       {showSetup && <BabySetup existing={profile} onSave={handleSave} onCancel={() => setShowSetup(false)} />}
 
-      <div className="flex flex-col gap-7 animate-fade-in max-w-[1400px] mx-auto">
+      <div className="flex flex-col gap-6 animate-slide-up max-w-[1400px] mx-auto">
 
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4 flex-wrap">
+        {/* Page header */}
+        <div className="flex items-center justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-3xl font-black text-text-primary tracking-tight">
+            <h1 className="text-2xl font-black text-text-primary tracking-tight">
               {profile.name}'s <span className="gradient-text">Nutrition</span>
             </h1>
-            <p className="text-sm text-text-secondary mt-1.5">
-              {ageLabel} old · {selectedStage.label} stage
+            <p className="text-sm text-text-muted mt-0.5">
+              {ageLabel} old · <span className="text-text-secondary font-semibold">{selectedStage.label}</span> stage
             </p>
           </div>
-          <button onClick={() => setShowSetup(true)} className="btn-ghost py-2.5 px-5">
+          <button onClick={() => setShowSetup(true)}
+            className="g-btn g-btn-sm">
             ✏️ Update Profile
           </button>
         </div>
 
         {/* Two-column layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-7 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6 items-start">
 
           {/* Left — timeline */}
           <div className="lg:sticky lg:top-6">
@@ -154,23 +166,22 @@ export default function Baby() {
             />
           </div>
 
-          {/* Right — tabs */}
-          <div className="flex flex-col gap-5 min-w-0">
-            <div className="flex gap-1.5 p-1.5 bg-surface2 rounded-2xl border border-border w-fit overflow-x-auto scrollbar-hide">
+          {/* Right — tabs + content */}
+          <div className="flex flex-col gap-4 min-w-0">
+
+            {/* Glassy tab bar */}
+            <div className="g-tab-bar w-fit overflow-x-auto">
               {TABS.map(tab => (
                 <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                  className={`flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-black transition-all ${
-                    activeTab === tab.id
-                      ? 'gradient-brand text-white shadow-lg shadow-purple-500/20'
-                      : 'text-text-secondary hover:text-text-primary'
-                  }`}>
+                  className={`g-tab ${activeTab === tab.id ? 'g-tab-active-teal' : ''}`}>
                   <span>{tab.emoji}</span>
                   <span>{tab.label}</span>
                 </button>
               ))}
             </div>
 
-            <div className="animate-fade-in" key={activeTab + selectedStageId}>
+            {/* Tab content */}
+            <div className="animate-slide-up" key={activeTab + selectedStageId}>
               {activeTab === 'guide' && (
                 <BabyStageGuide guide={selectedGuide} stage={selectedStage} tamilPref={profile.tamilFoodPreference} />
               )}
@@ -184,12 +195,21 @@ export default function Baby() {
                 <BabyMealPlanner stageId={selectedStageId} dietType={profile.dietType} tamilPref={profile.tamilFoodPreference} ageMonths={getStageById(selectedStageId).ageRangeMonths[0]} />
               )}
               {activeTab === 'ai' && (
-                <BabyAIChat context={{ stageId: selectedStageId, ageMonths: getStageById(selectedStageId).ageRangeMonths[0], ageLabel: selectedStage.label, dietType: profile.dietType, tamilFoodPreference: profile.tamilFoodPreference, introducedFoods: introRecords.filter(r => r.status !== 'not_introduced').map(r => r.foodName), reportedAllergens: introRecords.filter(r => r.status === 'reaction_reported').map(r => r.foodName) }} />
+                <BabyAIChat context={{
+                  stageId: selectedStageId,
+                  ageMonths: getStageById(selectedStageId).ageRangeMonths[0],
+                  ageLabel: selectedStage.label,
+                  dietType: profile.dietType,
+                  tamilFoodPreference: profile.tamilFoodPreference,
+                  introducedFoods: introRecords.filter(r => r.status !== 'not_introduced').map(r => r.foodName),
+                  reportedAllergens: introRecords.filter(r => r.status === 'reaction_reported').map(r => r.foodName),
+                }} />
               )}
             </div>
 
-            <div className="p-4 bg-surface2 border border-border rounded-2xl">
-              <p className="text-[11px] text-text-muted text-center leading-relaxed">
+            {/* Footer disclaimer */}
+            <div className="g-card-sm p-3 text-center">
+              <p className="text-[10px] text-text-muted leading-relaxed">
                 ℹ️ FitTracker provides general nutrition information and is not a substitute for advice from a paediatrician or qualified healthcare professional.
               </p>
             </div>

@@ -13,6 +13,7 @@ import FamilyMealGenerator from '../components/family/FamilyMealGenerator'
 import FamilyWeeklyPlanner from '../components/family/FamilyWeeklyPlanner'
 import FamilyShoppingList  from '../components/family/FamilyShoppingList'
 import FamilyAIChat        from '../components/family/FamilyAIChat'
+import PageLoader          from '../components/PageLoader'
 
 type TabId = 'members' | 'meal' | 'planner' | 'shopping' | 'ai'
 
@@ -57,7 +58,9 @@ export default function Family() {
       await saveFamilyMember(user.uid, member)
       await saveFamilyProfile(user.uid, { familyName: profile.familyName, cuisinePreference: profile.cuisinePreference })
       const existingIdx = profile.members.findIndex(m => m.id === member.id)
-      const updatedMembers = existingIdx >= 0 ? profile.members.map(m => m.id === member.id ? member : m) : [...profile.members, member]
+      const updatedMembers = existingIdx >= 0
+        ? profile.members.map(m => m.id === member.id ? member : m)
+        : [...profile.members, member]
       setProfile({ ...profile, members: updatedMembers })
     } finally { setSavingMember(false); setShowForm(false); setEditingMember(null) }
   }
@@ -88,16 +91,8 @@ export default function Family() {
     await saveShoppingList(user.uid, items)
   }, [user])
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-16 w-16 rounded-2xl gradient-brand animate-pulse shadow-xl" />
-          <p className="text-text-secondary text-sm font-semibold">Loading family dashboard…</p>
-        </div>
-      </div>
-    )
-  }
+  /* ── Loading ── */
+  if (loading) return <PageLoader variant="family" />
 
   if (!profile) return null
 
@@ -114,52 +109,54 @@ export default function Family() {
 
       {/* Family name edit modal */}
       {showNameEdit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-          <div className="bg-surface rounded-2xl shadow-2xl w-full max-w-sm p-7 animate-scale-in">
-            <h3 className="text-lg font-black text-text-primary mb-5">Edit Family Name</h3>
-            <input type="text" value={familyName} onChange={e => setFamilyName(e.target.value)}
-              className="input mb-5" placeholder="e.g. The Kumar Family"
-              onKeyDown={e => e.key === 'Enter' && handleSaveFamilyName()} autoFocus />
-            <div className="flex gap-3">
-              <button onClick={() => setShowNameEdit(false)} className="btn-ghost flex-1">Cancel</button>
-              <button onClick={handleSaveFamilyName} className="btn-purple flex-1">Save</button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 g-modal-overlay animate-pop-in">
+          <div className="g-modal-panel w-full max-w-sm p-6 animate-pop-in">
+            <h3 className="text-base font-black text-text-primary mb-4">Edit Family Name</h3>
+            <input
+              type="text"
+              value={familyName}
+              onChange={e => setFamilyName(e.target.value)}
+              className="g-input mb-4"
+              placeholder="e.g. The Kumar Family"
+              onKeyDown={e => e.key === 'Enter' && handleSaveFamilyName()}
+              autoFocus
+            />
+            <div className="flex gap-2">
+              <button onClick={() => setShowNameEdit(false)} className="g-btn flex-1">Cancel</button>
+              <button onClick={handleSaveFamilyName} className="g-btn g-btn-emerald flex-1">Save</button>
             </div>
           </div>
         </div>
       )}
 
-      <div className="flex flex-col gap-7 animate-fade-in max-w-[1400px] mx-auto">
+      <div className="flex flex-col gap-5 animate-slide-up max-w-[1400px] mx-auto">
 
         {/* Page header */}
-        <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-3xl font-black text-text-primary tracking-tight">
+            <h1 className="text-2xl font-black text-text-primary tracking-tight">
               Family <span className="gradient-text">Nutrition</span>
             </h1>
-            <p className="text-sm text-text-secondary mt-1.5">
+            <p className="text-sm text-text-muted mt-0.5">
               AI-powered meals personalised for every family member
             </p>
           </div>
           <button
             onClick={() => { setShowForm(true); setEditingMember(null) }}
             disabled={savingMember}
-            className="btn-purple py-2.5 px-6 flex items-center gap-2">
+            className="g-btn g-btn-emerald g-btn-sm">
             + Add Member
           </button>
         </div>
 
-        {/* Tab bar */}
-        <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
-          <div className="flex gap-1.5 p-1.5 bg-surface2 rounded-2xl border border-border">
+        {/* Glassy tab bar */}
+        <div className="overflow-x-auto pb-0.5">
+          <div className="g-tab-bar w-fit">
             {TABS.map(tab => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex-shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-black transition-all ${
-                  activeTab === tab.id
-                    ? 'gradient-brand text-white shadow-lg shadow-purple-500/20'
-                    : 'text-text-secondary hover:text-text-primary'
-                }`}
+                className={`g-tab ${activeTab === tab.id ? 'g-tab-active-emerald' : ''}`}
               >
                 <span>{tab.emoji}</span>
                 <span>{tab.label}</span>
@@ -169,7 +166,7 @@ export default function Family() {
         </div>
 
         {/* Tab content */}
-        <div className="animate-fade-in" key={activeTab}>
+        <div className="animate-slide-up" key={activeTab}>
           {activeTab === 'members' && (
             <FamilyDashboard
               profile={profile}
@@ -194,9 +191,9 @@ export default function Family() {
           )}
         </div>
 
-        {/* Disclaimer */}
-        <div className="p-4 bg-surface2 border border-border rounded-2xl">
-          <p className="text-[11px] text-text-muted text-center leading-relaxed">
+        {/* Footer disclaimer */}
+        <div className="g-card-sm p-3 text-center">
+          <p className="text-[10px] text-text-muted leading-relaxed">
             ℹ️ FitTracker provides general nutrition information and is not a substitute for advice from a qualified healthcare professional. Always consult your doctor, paediatrician, or registered dietitian for personalised guidance.
           </p>
         </div>

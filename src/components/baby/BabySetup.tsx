@@ -11,7 +11,7 @@ interface Props {
 
 const DIET_OPTIONS: { value: BabyDietType; label: string; emoji: string }[] = [
   { value: 'vegetarian',     label: 'Vegetarian',     emoji: '🥬' },
-  { value: 'non_vegetarian', label: 'Non-Vegetarian', emoji: '🍗' },
+  { value: 'non_vegetarian', label: 'Non-Veg',        emoji: '🍗' },
   { value: 'vegan',          label: 'Vegan',          emoji: '🌱' },
 ]
 
@@ -26,8 +26,8 @@ export default function BabySetup({ existing, onSave, onCancel }: Props) {
 
   function validate(): boolean {
     const e: Record<string, string> = {}
-    if (!name.trim()) e.name = 'Please enter your baby\'s name.'
-    if (!dob) e.dob = 'Please enter your baby\'s date of birth.'
+    if (!name.trim()) e.name = "Please enter your baby's name."
+    if (!dob) e.dob = "Please enter your baby's date of birth."
     else {
       const age = calculateAgeMonths(dob)
       if (age < 0 || new Date(dob) > new Date()) e.dob = 'Date of birth cannot be in the future.'
@@ -48,137 +48,131 @@ export default function BabySetup({ existing, onSave, onCancel }: Props) {
     })
   }
 
-  // Live age preview
-  const previewAge = dob ? calculateAgeMonths(dob) : null
+  const previewAge   = dob ? calculateAgeMonths(dob) : null
   const previewLabel = previewAge !== null ? calculateAgeLabel(previewAge) : null
   const previewStage = previewAge !== null ? getStageById(getStageIdForAge(previewAge)) : null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-      <div className="bg-surface rounded-3xl card-shadow w-full max-w-lg animate-scale-in overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 g-modal-overlay animate-pop-in">
+      <div className="g-modal-panel w-full max-w-md animate-pop-in overflow-hidden">
 
-        {/* Header */}
-        <div className="bg-gradient-to-r from-teal-500 to-blue-500 p-6 text-white">
-          <div className="text-3xl mb-2">👶</div>
-          <h2 className="text-xl font-black">
-            {existing ? 'Update Baby Profile' : 'Set Up Baby Nutrition'}
-          </h2>
-          <p className="text-white/80 text-sm mt-1">
-            We'll personalise nutrition guidance based on your baby's age.
-          </p>
+        {/* Header strip */}
+        <div className="px-6 pt-6 pb-5" style={{
+          background: 'linear-gradient(135deg, rgb(32 195 190 / 0.18), rgb(56 189 248 / 0.12))',
+          borderBottom: '1px solid rgb(255 255 255 / 0.07)',
+        }}>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0"
+              style={{ background: 'rgb(32 195 190 / 0.2)', border: '1px solid rgb(32 195 190 / 0.3)' }}>
+              👶
+            </div>
+            <div>
+              <h2 className="text-base font-black text-text-primary">
+                {existing ? 'Update Baby Profile' : 'Set Up Baby Nutrition'}
+              </h2>
+              <p className="text-xs text-text-muted mt-0.5">
+                We'll personalise guidance based on your baby's age.
+              </p>
+            </div>
+          </div>
         </div>
 
-        {/* Form */}
-        <div className="p-6 flex flex-col gap-5 max-h-[70vh] overflow-y-auto">
+        {/* Scrollable form body */}
+        <div className="p-5 flex flex-col gap-4 overflow-y-auto" style={{ maxHeight: '65vh' }}>
 
           {/* Baby name */}
           <div>
-            <label className="block text-sm font-bold text-text-primary mb-1.5">
-              Baby's name
-            </label>
+            <label className="block text-xs font-bold text-text-secondary mb-1.5">Baby's name</label>
             <input
               type="text"
               placeholder="e.g. Arjun or Priya"
               value={name}
               onChange={e => { setName(e.target.value); setErrors({}) }}
-              className="input"
+              className="g-input"
             />
-            {errors.name && <p className="text-danger text-xs mt-1">{errors.name}</p>}
+            {errors.name && <p className="text-red-400 text-xs mt-1">{errors.name}</p>}
           </div>
 
           {/* Date of birth */}
           <div>
-            <label className="block text-sm font-bold text-text-primary mb-1.5">
-              Date of birth
-            </label>
+            <label className="block text-xs font-bold text-text-secondary mb-1.5">Date of birth</label>
             <input
               type="date"
               max={today}
               value={dob}
               onChange={e => { setDob(e.target.value); setErrors({}) }}
-              className="input"
+              className="g-input"
             />
-            {errors.dob && <p className="text-danger text-xs mt-1">{errors.dob}</p>}
+            {errors.dob && <p className="text-red-400 text-xs mt-1">{errors.dob}</p>}
           </div>
 
           {/* Age preview */}
           {previewLabel && previewStage && !errors.dob && (
-            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-2xl p-3 flex items-center gap-3 border border-blue-200 dark:border-blue-700">
-              <span className="text-2xl">{previewStage.emoji}</span>
+            <div className="g-card-sm p-3 flex items-center gap-3 animate-slide-up"
+              style={{ background: 'rgb(32 195 190 / 0.08)', borderColor: 'rgb(32 195 190 / 0.2)' }}>
+              <span className="text-xl">{previewStage.emoji}</span>
               <div>
-                <p className="text-xs text-text-secondary">Current age</p>
-                <p className="font-bold text-text-primary">{previewLabel} old</p>
-                <p className="text-xs text-blue-600 dark:text-blue-400">{previewStage.label} stage</p>
+                <p className="text-[10px] text-text-muted">Current age</p>
+                <p className="text-sm font-bold text-text-primary">{previewLabel} old</p>
+                <p className="text-xs text-teal-400">{previewStage.label} stage</p>
               </div>
             </div>
           )}
 
           {/* Diet type */}
           <div>
-            <label className="block text-sm font-bold text-text-primary mb-2">Diet type</label>
+            <label className="block text-xs font-bold text-text-secondary mb-2">Diet type</label>
             <div className="grid grid-cols-3 gap-2">
               {DIET_OPTIONS.map(d => (
-                <button
-                  key={d.value}
-                  onClick={() => setDietType(d.value)}
-                  className={`flex flex-col items-center gap-1 py-3 rounded-2xl border-2 text-xs font-bold transition-all ${
-                    dietType === d.value
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-                      : 'border-border bg-surface2 text-text-secondary hover:border-blue-300'
-                  }`}
-                >
+                <button key={d.value} onClick={() => setDietType(d.value)}
+                  className="g-select-btn flex-col items-center justify-center gap-1 py-3"
+                  style={dietType === d.value ? {
+                    background: 'rgb(32 195 190 / 0.18)', borderColor: 'rgb(32 195 190 / 0.45)',
+                    color: 'rgb(94 234 212)', boxShadow: '0 0 0 1px rgb(32 195 190 / 0.1)',
+                  } : {}}>
                   <span className="text-xl">{d.emoji}</span>
-                  <span>{d.label}</span>
+                  <span className="text-[11px] font-bold">{d.label}</span>
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Tamil food preference */}
+          {/* Tamil preference toggle */}
           <button
             onClick={() => setTamilPref(v => !v)}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl border-2 text-sm font-semibold transition-all ${
-              tamilPref
-                ? 'border-orange-400 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300'
-                : 'border-border bg-surface2 text-text-secondary'
-            }`}
+            className="g-select-btn gap-3"
+            style={tamilPref ? {
+              background: 'rgb(251 146 60 / 0.12)', borderColor: 'rgb(251 146 60 / 0.35)',
+              color: 'rgb(253 186 116)',
+            } : {}}
           >
-            <span className="text-xl">🍚</span>
-            <div className="text-left">
-              <p className="font-bold">Tamil traditional food preference</p>
-              <p className="text-xs opacity-70">Ragi, kambu, idli, and traditional Tamil foods</p>
+            <span className="text-xl flex-shrink-0">🍚</span>
+            <div className="flex-1 text-left">
+              <p className="text-xs font-bold">Tamil traditional food preference</p>
+              <p className="text-[10px] opacity-60 mt-0.5">Ragi, kambu, idli, and traditional Tamil foods</p>
             </div>
-            <div className={`ml-auto w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-              tamilPref ? 'bg-orange-400 border-orange-400' : 'border-border'
+            <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+              tamilPref
+                ? 'border-orange-400 bg-orange-400'
+                : 'border-white/20 bg-transparent'
             }`}>
-              {tamilPref && <span className="text-white text-xs">✓</span>}
+              {tamilPref && <span className="text-white text-[9px] font-black">✓</span>}
             </div>
           </button>
 
           {/* Disclaimer */}
-          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-2xl p-3">
-            <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
-              ⚠️ <strong>Health disclaimer:</strong> FitTracker provides general nutrition information only.
-              It is not a substitute for advice from a paediatrician or qualified healthcare professional.
-              Always consult your doctor for personalised guidance.
-            </p>
+          <div className="g-disclaimer">
+            ⚠️ <strong>Health disclaimer:</strong> General nutrition info only — not a substitute
+            for paediatric advice. Always consult your doctor.
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="px-6 pb-6 flex gap-3">
+        {/* Footer actions */}
+        <div className="px-5 pb-5 flex gap-2.5" style={{ borderTop: '1px solid rgb(255 255 255 / 0.06)' }}>
           {onCancel && (
-            <button
-              onClick={onCancel}
-              className="flex-1 py-3 rounded-2xl border border-border text-sm font-bold text-text-secondary hover:bg-surface2 transition-colors"
-            >
-              Cancel
-            </button>
+            <button onClick={onCancel} className="g-btn flex-1 py-3">Cancel</button>
           )}
-          <button
-            onClick={handleSave}
-            className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-teal-500 to-blue-500 text-white text-sm font-bold shadow-lg hover:opacity-90 transition-opacity"
-          >
+          <button onClick={handleSave} className="g-btn g-btn-teal flex-1 py-3">
             {existing ? 'Update Profile' : 'Start Baby Journey 👶'}
           </button>
         </div>

@@ -7,63 +7,61 @@ interface Props {
   tamilPref: boolean
 }
 
-const STAGE_GRAD: Record<string, string> = {
-  months_0_6:  'from-blue-500 to-cyan-500',
-  months_6_9:  'from-teal-500 to-green-500',
-  months_9_12: 'from-purple-500 to-violet-500',
-  years_1_2:   'from-pink-500 to-rose-500',
-  years_2_3:   'from-orange-500 to-amber-500',
+const STAGE_COLORS: Record<string, { glow: string; accent: string; text: string }> = {
+  months_0_6:  { glow: 'rgb(56 189 248 / 0.16)',  accent: 'rgb(56 189 248)',  text: 'rgb(125 211 252)' },
+  months_6_9:  { glow: 'rgb(32 195 190 / 0.16)',  accent: 'rgb(32 195 190)', text: 'rgb(94 234 212)'  },
+  months_9_12: { glow: 'rgb(139 92 246 / 0.16)',  accent: 'rgb(139 92 246)', text: 'rgb(196 181 253)' },
+  years_1_2:   { glow: 'rgb(244 114 182 / 0.16)', accent: 'rgb(244 114 182)',text: 'rgb(249 168 212)' },
+  years_2_3:   { glow: 'rgb(251 146 60 / 0.16)',  accent: 'rgb(251 146 60)', text: 'rgb(253 186 116)' },
 }
 
 export default function BabyStageGuide({ guide, stage, tamilPref }: Props) {
   const [open, setOpen] = useState<string | null>('overview')
   const toggle = (id: string) => setOpen(p => p === id ? null : id)
-  const grad = STAGE_GRAD[stage.id] ?? 'from-teal-500 to-blue-500'
-
-  const isMillkOnly = stage.id === 'months_0_6'
+  const sc = STAGE_COLORS[stage.id] ?? STAGE_COLORS['months_6_9']
+  const isMilkOnly = stage.id === 'months_0_6'
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
 
-      {/* Stage header */}
-      <div className={`rounded-3xl bg-gradient-to-br ${grad} p-5 text-white card-shadow`}>
+      {/* Stage header card */}
+      <div className="g-card p-4 animate-slide-up" style={{
+        background: sc.glow, borderColor: `${sc.accent}44`,
+        boxShadow: `0 4px 24px ${sc.glow}`,
+      }}>
         <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-white/70 text-xs font-semibold uppercase tracking-wider mb-1">
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: sc.text, opacity: 0.7 }}>
               {stage.label}
             </p>
-            <h2 className="text-xl font-black">{guide.title}</h2>
-            <p className="text-white/80 text-sm mt-1 leading-relaxed line-clamp-2">
-              {guide.overview}
-            </p>
+            <h2 className="text-base font-black text-text-primary">{guide.title}</h2>
+            <p className="text-xs text-text-muted mt-1 leading-relaxed line-clamp-2">{guide.overview}</p>
           </div>
-          <span className="text-5xl flex-shrink-0 select-none">{stage.emoji}</span>
+          <span className="text-4xl flex-shrink-0 select-none">{stage.emoji}</span>
         </div>
-
-        {/* Daily meals badge */}
-        {!isMillkOnly && (
-          <div className="flex gap-2 mt-4 flex-wrap">
-            <span className="px-3 py-1 bg-white/20 rounded-full text-xs font-semibold backdrop-blur-sm">
+        {!isMilkOnly && (
+          <div className="flex gap-1.5 mt-3 flex-wrap">
+            <span className="g-badge" style={{ background: `${sc.accent}18`, borderColor: `${sc.accent}33`, color: sc.text }}>
               {guide.dailyMeals} solid meal{guide.dailyMeals !== 1 ? 's' : ''}/day
             </span>
-            <span className="px-3 py-1 bg-white/20 rounded-full text-xs font-semibold backdrop-blur-sm">
+            <span className="g-badge" style={{ background: `${sc.accent}18`, borderColor: `${sc.accent}33`, color: sc.text }}>
               {stage.texture.replace(/_/g, ' ')} texture
             </span>
           </div>
         )}
       </div>
 
-      {/* 0–6m special: milk-only info cards */}
-      {isMillkOnly && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {/* Milk-only info cards */}
+      {isMilkOnly && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           {[
-            { emoji: '🍼', title: 'Feeding mode', text: guide.milkFeeding ?? '' },
+            { emoji: '🍼', title: 'Feeding mode',              text: guide.milkFeeding ?? '' },
             { emoji: '👁️', title: 'Signs of readiness for solids', text: guide.developerMilestones.join(' • ') },
           ].map(c => (
-            <div key={c.title} className="card card-shadow p-4">
-              <span className="text-2xl">{c.emoji}</span>
-              <p className="font-bold text-text-primary text-sm mt-2">{c.title}</p>
-              <p className="text-xs text-text-secondary mt-1 leading-relaxed">{c.text}</p>
+            <div key={c.title} className="g-card p-3">
+              <span className="text-xl">{c.emoji}</span>
+              <p className="font-bold text-text-primary text-xs mt-2">{c.title}</p>
+              <p className="text-[11px] text-text-muted mt-1 leading-relaxed">{c.text}</p>
             </div>
           ))}
         </div>
@@ -72,42 +70,38 @@ export default function BabyStageGuide({ guide, stage, tamilPref }: Props) {
       {/* Accordion sections */}
       {[
         {
-          id: 'overview',
-          emoji: '📋',
-          title: 'Feeding Overview',
+          id: 'overview', emoji: '📋', title: 'Feeding Overview',
           content: (
-            <div className="flex flex-col gap-3">
-              <p className="text-sm text-text-secondary leading-relaxed">{guide.feedingOverview}</p>
+            <div className="flex flex-col gap-2.5">
+              <p className="text-xs text-text-secondary leading-relaxed">{guide.feedingOverview}</p>
               {guide.milkFeeding && (
-                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-2xl">
-                  <p className="text-xs font-bold text-blue-700 dark:text-blue-400 mb-1">🍼 Milk feeding</p>
-                  <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">{guide.milkFeeding}</p>
+                <div className="g-card-sm p-2.5" style={{ background: 'rgb(56 189 248 / 0.08)', borderColor: 'rgb(56 189 248 / 0.2)' }}>
+                  <p className="text-[10px] font-bold text-sky-300 mb-1">🍼 Milk feeding</p>
+                  <p className="text-[11px] text-sky-300/80 leading-relaxed">{guide.milkFeeding}</p>
                 </div>
               )}
               {guide.solidsFocus && (
-                <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-2xl">
-                  <p className="text-xs font-bold text-green-700 dark:text-green-400 mb-1">🥣 Solid foods</p>
-                  <p className="text-xs text-green-700 dark:text-green-300 leading-relaxed">{guide.solidsFocus}</p>
+                <div className="g-card-sm p-2.5" style={{ background: 'rgb(16 185 129 / 0.08)', borderColor: 'rgb(16 185 129 / 0.2)' }}>
+                  <p className="text-[10px] font-bold text-emerald-400 mb-1">🥣 Solid foods</p>
+                  <p className="text-[11px] text-emerald-300/80 leading-relaxed">{guide.solidsFocus}</p>
                 </div>
               )}
             </div>
           ),
         },
-        ...(!isMillkOnly ? [{
-          id: 'nutrients',
-          emoji: '💊',
-          title: 'Key Nutrients',
+        ...(!isMilkOnly ? [{
+          id: 'nutrients', emoji: '💊', title: 'Key Nutrients',
           content: (
             <div className="flex flex-col gap-3">
               {guide.keyNutrients.map(n => (
-                <div key={n.name} className="flex gap-3">
-                  <span className="text-2xl flex-shrink-0">{n.emoji}</span>
+                <div key={n.name} className="flex gap-2.5">
+                  <span className="text-xl flex-shrink-0">{n.emoji}</span>
                   <div>
-                    <p className="text-sm font-bold text-text-primary">{n.name}</p>
-                    <p className="text-xs text-text-secondary mb-1.5">{n.reason}</p>
+                    <p className="text-xs font-bold text-text-primary">{n.name}</p>
+                    <p className="text-[11px] text-text-muted mb-1.5">{n.reason}</p>
                     <div className="flex flex-wrap gap-1">
                       {n.sources.map(s => (
-                        <span key={s} className="px-2 py-0.5 bg-surface2 rounded-full text-xs text-text-secondary border border-border">{s}</span>
+                        <span key={s} className="g-badge text-[10px]">{s}</span>
                       ))}
                     </div>
                   </div>
@@ -116,41 +110,39 @@ export default function BabyStageGuide({ guide, stage, tamilPref }: Props) {
             </div>
           ),
         }] : []),
-        ...(!isMillkOnly ? [{
-          id: 'foods',
-          emoji: '🍽️',
-          title: 'Foods for This Stage',
+        ...(!isMilkOnly ? [{
+          id: 'foods', emoji: '🍽️', title: 'Foods for This Stage',
           content: (
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3">
               {tamilPref && guide.tamilFoods.length > 0 && (
                 <div>
-                  <p className="text-xs font-bold text-orange-600 dark:text-orange-400 mb-2">🍚 Tamil Traditional</p>
+                  <p className="text-[10px] font-bold mb-1.5" style={{ color: 'rgb(253 186 116)' }}>🍚 Tamil Traditional</p>
                   <div className="flex flex-wrap gap-1.5">
                     {guide.tamilFoods.map(f => (
-                      <span key={f} className="px-2.5 py-1 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-full text-xs font-medium text-orange-700 dark:text-orange-300">{f}</span>
+                      <span key={f} className="g-badge" style={{ background: 'rgb(251 146 60 / 0.12)', borderColor: 'rgb(251 146 60 / 0.25)', color: 'rgb(253 186 116)' }}>{f}</span>
                     ))}
                   </div>
                 </div>
               )}
               {guide.globalFoods.length > 0 && (
                 <div>
-                  <p className="text-xs font-bold text-blue-600 dark:text-blue-400 mb-2">🌍 Global Foods</p>
+                  <p className="text-[10px] font-bold mb-1.5" style={{ color: 'rgb(125 211 252)' }}>🌍 Global Foods</p>
                   <div className="flex flex-wrap gap-1.5">
                     {guide.globalFoods.map(f => (
-                      <span key={f} className="px-2.5 py-1 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-full text-xs font-medium text-blue-700 dark:text-blue-300">{f}</span>
+                      <span key={f} className="g-badge" style={{ background: 'rgb(56 189 248 / 0.1)', borderColor: 'rgb(56 189 248 / 0.22)', color: 'rgb(125 211 252)' }}>{f}</span>
                     ))}
                   </div>
                 </div>
               )}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 {[
-                  { label: '🍎 Fruits', items: guide.fruits, color: 'text-green-600 dark:text-green-400' },
-                  { label: '🥬 Vegetables', items: guide.vegetables, color: 'text-emerald-600 dark:text-emerald-400' },
-                  { label: '💪 Protein', items: guide.proteinFoods, color: 'text-purple-600 dark:text-purple-400' },
+                  { label: '🍎 Fruits',     items: guide.fruits,       color: 'rgb(110 231 183)' },
+                  { label: '🥬 Vegetables', items: guide.vegetables,   color: 'rgb(94 234 212)'  },
+                  { label: '💪 Protein',    items: guide.proteinFoods, color: 'rgb(196 181 253)' },
                 ].map(col => col.items.length > 0 && (
                   <div key={col.label}>
-                    <p className={`text-xs font-bold mb-1.5 ${col.color}`}>{col.label}</p>
-                    {col.items.map(i => <p key={i} className="text-xs text-text-secondary">• {i}</p>)}
+                    <p className="text-[10px] font-bold mb-1" style={{ color: col.color }}>{col.label}</p>
+                    {col.items.map(i => <p key={i} className="text-[11px] text-text-muted">• {i}</p>)}
                   </div>
                 ))}
               </div>
@@ -158,68 +150,60 @@ export default function BabyStageGuide({ guide, stage, tamilPref }: Props) {
           ),
         }] : []),
         {
-          id: 'readiness',
-          emoji: '✅',
-          title: 'Developmental Milestones',
+          id: 'readiness', emoji: '✅', title: 'Developmental Milestones',
           content: (
-            <ul className="flex flex-col gap-2">
+            <ul className="flex flex-col gap-1.5">
               {guide.developerMilestones.map((m, i) => (
-                <li key={i} className="flex gap-2 text-sm text-text-secondary">
-                  <span className="text-teal-500 flex-shrink-0 mt-0.5">•</span>
-                  <span>{m}</span>
+                <li key={i} className="flex gap-2 text-xs text-text-secondary">
+                  <span className="text-teal-400 flex-shrink-0 mt-0.5">•</span><span>{m}</span>
                 </li>
               ))}
             </ul>
           ),
         },
         {
-          id: 'safety',
-          emoji: '🛡️',
-          title: 'Safety & Foods to Avoid',
+          id: 'safety', emoji: '🛡️', title: 'Safety & Foods to Avoid',
           content: (
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2.5">
               {guide.chokingSafety.length > 0 && (
                 <div>
-                  <p className="text-xs font-bold text-red-600 dark:text-red-400 mb-1.5">⚠️ Choking safety</p>
+                  <p className="text-[10px] font-bold mb-1" style={{ color: 'rgb(252 165 165)' }}>⚠️ Choking safety</p>
                   {guide.chokingSafety.map((s, i) => (
-                    <p key={i} className="text-xs text-text-secondary mb-1">• {s}</p>
+                    <p key={i} className="text-[11px] text-text-muted mb-0.5">• {s}</p>
                   ))}
                 </div>
               )}
               {guide.foodsToAvoid.length > 0 && (
                 <div>
-                  <p className="text-xs font-bold text-red-600 dark:text-red-400 mb-1.5">🚫 Avoid / use caution</p>
+                  <p className="text-[10px] font-bold mb-1" style={{ color: 'rgb(252 165 165)' }}>🚫 Avoid / use caution</p>
                   {guide.foodsToAvoid.map((f, i) => (
-                    <p key={i} className="text-xs text-text-secondary mb-1">• {f}</p>
+                    <p key={i} className="text-[11px] text-text-muted mb-0.5">• {f}</p>
                   ))}
                 </div>
               )}
-              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-2xl">
-                <p className="text-xs font-bold text-blue-700 dark:text-blue-400 mb-1">👩‍⚕️ Paediatrician note</p>
-                <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">{guide.doctorNote}</p>
+              <div className="g-card-sm p-2.5" style={{ background: 'rgb(56 189 248 / 0.07)', borderColor: 'rgb(56 189 248 / 0.18)' }}>
+                <p className="text-[10px] font-bold text-sky-300 mb-0.5">👩‍⚕️ Paediatrician note</p>
+                <p className="text-[11px] text-sky-300/70 leading-relaxed">{guide.doctorNote}</p>
               </div>
-              <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-2xl">
-                <p className="text-xs text-amber-800 dark:text-amber-300">
-                  ⚠️ General information only. Always follow your paediatrician's guidance.
-                </p>
+              <div className="g-disclaimer">
+                ⚠️ General information only. Always follow your paediatrician's guidance.
               </div>
             </div>
           ),
         },
       ].map(section => (
-        <div key={section.id} className="card card-shadow">
-          <button
-            onClick={() => toggle(section.id)}
-            className="w-full flex items-center justify-between gap-3 text-left"
-          >
-            <div className="flex items-center gap-2.5">
-              <span className="text-xl">{section.emoji}</span>
-              <span className="font-bold text-text-primary text-sm">{section.title}</span>
+        <div key={section.id} className="g-card p-3 transition-all">
+          <button onClick={() => toggle(section.id)}
+            className="w-full flex items-center justify-between gap-2 text-left">
+            <div className="flex items-center gap-2">
+              <span className="text-base">{section.emoji}</span>
+              <span className="font-bold text-text-primary text-xs">{section.title}</span>
             </div>
-            <span className={`text-text-muted transition-transform duration-200 ${open === section.id ? 'rotate-180' : ''}`}>▾</span>
+            <span className="text-text-muted text-xs transition-transform duration-200"
+              style={{ transform: open === section.id ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
           </button>
           {open === section.id && (
-            <div className="mt-4 pt-4 border-t border-border animate-fade-in">
+            <div className="mt-3 pt-3 animate-slide-up" style={{ borderTop: '1px solid rgb(255 255 255 / 0.06)' }}>
               {section.content}
             </div>
           )}

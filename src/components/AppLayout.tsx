@@ -14,22 +14,17 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const { profile } = useAuth()
   const navigate = useNavigate()
 
-  const COLLAPSED = 68
-  const EXPANDED  = 220
-  const initial   = profile?.displayName?.charAt(0)?.toUpperCase() ?? 'U'
+  const initial = profile?.displayName?.charAt(0)?.toUpperCase() ?? 'U'
 
   return (
     <div className="min-h-screen bg-bg flex">
       <Sidebar expanded={expanded} setExpanded={setExpanded} />
 
-      {/* Main content area */}
+      {/* Main content area — always 60px offset on desktop */}
       <div
-        className="flex-1 flex flex-col min-w-0 transition-[margin] duration-300 ease-in-out"
+        className="flex-1 flex flex-col min-w-0"
         style={{
-          marginLeft:
-            typeof window !== 'undefined' && window.innerWidth >= 768
-              ? expanded ? EXPANDED : COLLAPSED
-              : 0,
+          marginLeft: typeof window !== 'undefined' && window.innerWidth >= 768 ? 60 : 0,
         }}
       >
         {/* Desktop top bar — user avatar only */}

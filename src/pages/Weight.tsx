@@ -36,7 +36,7 @@ export default function Weight() {
     kg: unit === 'lbs' ? Math.round(kgToDisplay(w.weight, 'lbs') * 10) / 10 : w.weight,
   }))
 
-  if (loading) return <PageLoader />
+  if (loading) return <PageLoader variant="weight" />
 
   const tooltipStyle = { background: 'rgb(30,28,52)', border: '1px solid rgba(108,65,210,0.3)', borderRadius: '12px', fontSize: '11px' }
 

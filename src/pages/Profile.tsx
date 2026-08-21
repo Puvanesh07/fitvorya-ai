@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { logout, deleteCurrentUser } from '../firebase/auth'
 import { updateUserProfile } from '../firebase/firestore'
 import LoadingSpinner from '../components/LoadingSpinner'
+import PageLoader     from '../components/PageLoader'
 import type { Gender, ActivityLevel, FitnessGoal } from '../types'
 import { computeMetrics } from '../utils/calculations'
 import { fetchWeightHistory } from '../services/weightService'
@@ -37,7 +38,7 @@ export default function Profile() {
   const [goal, setGoal]                   = useState<FitnessGoal>(profile?.goal ?? 'maintain_weight')
   const [activityLevel, setActivityLevel] = useState<ActivityLevel>(profile?.activityLevel ?? 'moderate')
 
-  if (!profile) return <div className="flex justify-center py-32"><LoadingSpinner size="lg" /></div>
+  if (!profile) return <PageLoader variant="profile" />
 
   const metrics = computeMetrics(profile)
   const initial = profile.displayName?.charAt(0)?.toUpperCase() ?? 'U'

@@ -19,59 +19,114 @@ import Pregnancy      from './pages/Pregnancy'
 import Baby           from './pages/Baby'
 import Family         from './pages/Family'
 
-// ── Route guards ──────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Route guard helpers
+//
+// IMPORTANT: every guard must wait for BOTH `loading` (Firebase auth) AND
+// `profileLoaded` (Firestore profile fetch) before making any redirect
+// decision. Redirecting before either resolves causes the Landing →
+// Onboarding → Dashboard flash that users reported.
+// ─────────────────────────────────────────────────────────────────────────────
 
-/** Redirect authenticated users away from login/register */
+/**
+ * Root "/" — smart landing:
+ *  - Auth not resolved yet          → show global loader
+ *  - Not signed in                  → Landing page
+ *  - Signed in, onboarding done     → /dashboard
+ *  - Signed in, onboarding pending  → /onboarding
+ */
+function RootRoute() {
+  const { user, profile, loading, profileLoaded } = useAuth()
+
+  if (loading || (user && !profileLoaded)) return <PageLoader />
+
+  if (!user) return <Landing />
+
+  // User is authenticated — decide where to send them
+  if (profile?.onboardingComplete) return <Navigate to="/dashboard" replace />
+  return <Navigate to="/onboarding" replace />
+}
+
+/**
+ * Public-only (login / register) — redirect away once authenticated.
+ * Waits for both auth AND profile before deciding, so we never
+ * flicker to /dashboard only to bounce back to /onboarding.
+ */
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth()
-  if (loading) return <PageLoader />
-  if (user) return <Navigate to="/dashboard" replace />
+  const { user, profile, loading, profileLoaded } = useAuth()
+
+  if (loading || (user && !profileLoaded)) return <PageLoader />
+
+  if (user) {
+    // Already signed in — send to the correct destination
+    if (profile?.onboardingComplete) return <Navigate to="/dashboard" replace />
+    return <Navigate to="/onboarding" replace />
+  }
+
   return <>{children}</>
 }
 
-/** Auth required. Does NOT require onboarding complete. */
-function PrivateRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth()
+/**
+ * Onboarding route — auth required, but explicitly NOT onboarded yet.
+ * If the user has already completed onboarding, bounce them to /dashboard
+ * so they never see the onboarding form again.
+ */
+function OnboardingRoute({ children }: { children: React.ReactNode }) {
+  const { user, profile, loading, profileLoaded } = useAuth()
+
   if (loading) return <PageLoader />
-  if (!user) return <Navigate to="/login" replace />
+  if (!user)   return <Navigate to="/login" replace />
+
+  // Wait for the profile fetch — avoids briefly showing onboarding to
+  // returning users while Firestore is still loading their document.
+  if (!profileLoaded) return <PageLoader />
+
+  // Already done → go to dashboard
+  if (profile?.onboardingComplete) return <Navigate to="/dashboard" replace />
+
   return <>{children}</>
 }
 
-/** Auth + onboarding complete required.
- *  Waits for profileLoaded before making redirect decisions — prevents
- *  false /onboarding redirects while Firestore is still fetching the doc. */
+/**
+ * Protected + onboarded route.
+ * Full guard: auth resolved + profile loaded + onboarding complete.
+ */
 function OnboardedRoute({ children }: { children: React.ReactNode }) {
   const { user, profile, loading, profileLoaded } = useAuth()
 
-  // Firebase auth not resolved yet
+  // Firebase auth still resolving
   if (loading) return <PageLoader />
 
   // Not signed in
   if (!user) return <Navigate to="/login" replace />
 
-  // Auth resolved but profile fetch still in flight — wait
+  // Auth resolved but profile fetch still in flight — wait, don't redirect
   if (!profileLoaded) return <PageLoader />
 
-  // Profile fetched — null means no doc yet (new user), so go to onboarding
+  // Profile fetched — null or incomplete means not onboarded yet
   if (!profile || !profile.onboardingComplete) return <Navigate to="/onboarding" replace />
 
   return <>{children}</>
 }
 
-// ── Routes ────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Routes
+// ─────────────────────────────────────────────────────────────────────────────
 
 function AppRoutes() {
   return (
     <Routes>
-      {/* Public */}
-      <Route path="/"         element={<Landing />} />
+      {/* Root — smart redirect based on auth + onboarding state */}
+      <Route path="/" element={<RootRoute />} />
+
+      {/* Public — unauthenticated only */}
       <Route path="/login"    element={<PublicRoute><Login /></PublicRoute>} />
       <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
 
-      {/* Auth only — onboarding */}
-      <Route path="/onboarding" element={<PrivateRoute><Onboarding /></PrivateRoute>} />
+      {/* Onboarding — authenticated but not yet onboarded */}
+      <Route path="/onboarding" element={<OnboardingRoute><Onboarding /></OnboardingRoute>} />
 
-      {/* Auth + onboarding complete */}
+      {/* Protected + onboarded */}
       <Route path="/dashboard" element={
         <OnboardedRoute><AppLayout><Dashboard /></AppLayout></OnboardedRoute>
       } />
@@ -106,6 +161,7 @@ function AppRoutes() {
         <OnboardedRoute><AppLayout><Profile /></AppLayout></OnboardedRoute>
       } />
 
+      {/* Catch-all → root (which will decide where to go) */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

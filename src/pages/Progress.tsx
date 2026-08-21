@@ -147,7 +147,7 @@ export default function Progress() {
   }
 
   useEffect(() => { load() }, [uid])
-  if (loading) return <PageLoader />
+  if (loading) return <PageLoader variant="progress" />
 
   const weightChartData = [...measurements].filter(m => m.weight != null)
     .sort((a, b) => a.date.localeCompare(b.date)).slice(-16)

@@ -28,7 +28,7 @@ function formatMessage(text: string): React.ReactNode {
       j % 2 === 1 ? <strong key={j} className="font-bold text-text-primary">{p}</strong> : p
     )
     if (line.startsWith('• ') || line.startsWith('- ')) {
-      return <div key={i} className="flex gap-2 text-sm"><span className="text-emerald-500 flex-shrink-0 mt-0.5">•</span><span>{fmt}</span></div>
+      return <div key={i} className="flex gap-2 text-sm"><span className="text-emerald-400 flex-shrink-0 mt-0.5">•</span><span>{fmt}</span></div>
     }
     return <p key={i} className="text-sm leading-relaxed">{fmt}</p>
   })
@@ -101,38 +101,47 @@ export default function FamilyAIChat({ members, familyName, cuisinePreference }:
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
 
       {/* Disclaimer */}
-      <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-2xl p-3">
-        <p className="text-xs text-amber-800 dark:text-amber-300">
-          ⚠️ <strong>General information only.</strong> Not a substitute for medical or paediatric advice.
-          For pregnancy, baby, or medical dietary needs — always consult your healthcare provider.
+      <div className="g-disclaimer flex items-start gap-2">
+        <span className="text-amber-400 flex-shrink-0 text-sm">⚠️</span>
+        <p className="flex-1">
+          <strong>General information only.</strong> Not a substitute for medical or paediatric advice.
+          For pregnancy, baby, or medical dietary needs — consult your healthcare provider.
         </p>
       </div>
 
+      {/* Context badges — members */}
+      <div className="flex flex-wrap gap-1.5">
+        {members.map(m => (
+          <span key={m.id} className="g-badge">
+            {ROLE_CONFIG[m.role].emoji} {m.name}
+          </span>
+        ))}
+        <span className="g-badge" style={{ background: 'rgb(16 185 129 / 0.15)', borderColor: 'rgb(16 185 129 / 0.25)', color: 'rgb(110 231 183)' }}>
+          {cuisinePreference === 'tamil' ? '🇮🇳 Tamil' : cuisinePreference === 'global' ? '🌍 Global' : '✨ Mixed'}
+        </span>
+      </div>
+
       {/* Chat window */}
-      <div className="card card-shadow flex flex-col" style={{ minHeight: 400 }}>
-        <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3" style={{ maxHeight: 440 }}>
+      <div className="g-card-glow-emerald flex flex-col overflow-hidden" style={{ minHeight: 420, maxHeight: 500 }}>
+        <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2.5">
           {messages.map(msg => (
-            <div key={msg.id} className={`flex gap-2.5 animate-fade-up ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-              <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+            <div key={msg.id} className={`flex gap-2 animate-slide-up ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+              <div className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs ${
                 msg.role === 'assistant'
-                  ? 'bg-gradient-to-br from-emerald-400 to-teal-500 text-white'
-                  : 'bg-surface2 border border-border'
+                  ? 'bg-gradient-to-br from-emerald-400 to-teal-500 text-white shadow-md'
+                  : 'g-card-sm'
               }`}>
                 {msg.role === 'assistant' ? '🤖' : '👤'}
               </div>
-              <div className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-                msg.role === 'user'
-                  ? 'bg-gradient-to-br from-emerald-500 to-teal-500 text-white rounded-tr-sm'
-                  : 'bg-surface2 border border-border rounded-tl-sm'
-              }`}>
+              <div className={msg.role === 'user' ? 'g-bubble-user-emerald' : 'g-bubble-ai'}>
                 {msg.role === 'assistant'
                   ? <div className="flex flex-col gap-0.5">{formatMessage(msg.content)}</div>
-                  : <p className="text-sm text-white">{msg.content}</p>
+                  : <p className="text-sm">{msg.content}</p>
                 }
-                <p className={`text-[10px] mt-1 ${msg.role === 'user' ? 'text-white/60 text-right' : 'text-text-muted'}`}>
+                <p className={`text-[10px] mt-1 ${msg.role === 'user' ? 'text-white/50 text-right' : 'text-text-muted'}`}>
                   {new Date(msg.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                 </p>
               </div>
@@ -140,12 +149,12 @@ export default function FamilyAIChat({ members, familyName, cuisinePreference }:
           ))}
 
           {loading && (
-            <div className="flex gap-2.5 animate-fade-in">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center">🤖</div>
-              <div className="bg-surface2 border border-border rounded-2xl rounded-tl-sm px-4 py-3">
-                <div className="flex gap-1 items-center h-5">
+            <div className="flex gap-2 animate-pop-in">
+              <div className="flex-shrink-0 w-7 h-7 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-xs shadow-md">🤖</div>
+              <div className="g-bubble-ai">
+                <div className="flex gap-1 items-center h-4">
                   {[0, 1, 2].map(i => (
-                    <div key={i} className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: `${i * 150}ms` }} />
+                    <div key={i} className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-typing" style={{ animationDelay: `${i * 200}ms` }} />
                   ))}
                 </div>
               </div>
@@ -153,14 +162,15 @@ export default function FamilyAIChat({ members, familyName, cuisinePreference }:
           )}
 
           {error && (
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-2xl p-3 text-xs text-red-700 dark:text-red-300">
+            <div className="g-disclaimer" style={{ background: 'rgb(239 68 68 / 0.08)', borderColor: 'rgb(239 68 68 / 0.2)', color: 'rgb(248 113 113)' }}>
               ⚠️ {error}
             </div>
           )}
           <div ref={bottomRef} />
         </div>
 
-        <div className="border-t border-border p-3 flex gap-2">
+        {/* Input bar */}
+        <div className="border-t border-white/[0.07] p-2.5 flex gap-2">
           <textarea
             value={input}
             onChange={e => setInput(e.target.value)}
@@ -168,13 +178,14 @@ export default function FamilyAIChat({ members, familyName, cuisinePreference }:
             placeholder="Ask about family meals, shopping lists, substitutions…"
             rows={1}
             disabled={loading}
-            className="flex-1 resize-none bg-surface2 border border-border rounded-2xl px-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-emerald-400 transition-colors"
-            style={{ maxHeight: 100, overflowY: 'auto' }}
+            className="g-textarea flex-1"
+            style={{ maxHeight: 80, overflowY: 'auto', minHeight: 38 }}
           />
           <button
             onClick={() => sendMessage(input)}
             disabled={!input.trim() || loading}
-            className="flex-shrink-0 w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white flex items-center justify-center disabled:opacity-40 hover:opacity-90 transition-opacity shadow-md"
+            className="g-btn-emerald g-btn-icon"
+            style={{ width: 38, height: 38 }}
             aria-label="Send message"
           >➤</button>
         </div>
@@ -182,27 +193,14 @@ export default function FamilyAIChat({ members, familyName, cuisinePreference }:
 
       {/* Quick questions */}
       <div>
-        <p className="text-xs font-bold text-text-secondary uppercase tracking-wide mb-2">Quick questions</p>
-        <div className="flex flex-wrap gap-2">
+        <p className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-1.5 px-0.5">Quick questions</p>
+        <div className="flex flex-wrap gap-1.5">
           {QUICK_QUESTIONS.map(q => (
-            <button key={q} onClick={() => sendMessage(q)} disabled={loading}
-              className="px-3 py-1.5 bg-surface2 border border-border rounded-full text-xs font-medium text-text-secondary hover:border-emerald-400 hover:text-emerald-400 transition-all disabled:opacity-40">
+            <button key={q} onClick={() => sendMessage(q)} disabled={loading} className="g-pill">
               {q}
             </button>
           ))}
         </div>
-      </div>
-
-      {/* Family context badges */}
-      <div className="flex flex-wrap gap-2">
-        {members.map(m => (
-          <span key={m.id} className="px-2.5 py-1 bg-surface2 border border-border rounded-full text-xs font-semibold text-text-secondary">
-            {ROLE_CONFIG[m.role].emoji} {m.name}
-          </span>
-        ))}
-        <span className="px-2.5 py-1 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700 rounded-full text-xs font-semibold text-emerald-700 dark:text-emerald-300">
-          {cuisinePreference === 'tamil' ? '🇮🇳 Tamil' : cuisinePreference === 'global' ? '🌍 Global' : '✨ Mixed'}
-        </span>
       </div>
     </div>
   )

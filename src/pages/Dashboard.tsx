@@ -111,7 +111,7 @@ export default function Dashboard() {
     }).finally(() => setLoading(false))
   }, [profile])
 
-  if (loading || !metrics || !profile) return <PageLoader />
+  if (loading || !metrics || !profile) return <PageLoader variant="dashboard" />
 
   const todayNutrition = meals.reduce((acc, m) => {
     const f = m.grams / 100
