@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { logout } from '../firebase/auth'
 import { useAuth } from '../context/AuthContext'
@@ -88,29 +89,208 @@ function IconClose({ size = 18 }: { size?: number }) {
     </svg>
   )
 }
+function IconCoach({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2a7 7 0 0 1 7 7c0 3-1.5 5-4 6.5V17a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-1.5C6.5 14 5 12 5 9a7 7 0 0 1 7-7z"/>
+      <path d="M9 21h6"/>
+      <circle cx="9.5" cy="9" r="0.5" fill="currentColor" stroke="none"/>
+      <circle cx="14.5" cy="9" r="0.5" fill="currentColor" stroke="none"/>
+    </svg>
+  )
+}
 
 // ── Nav items ─────────────────────────────────────────────────────────────────
 export const NAV = [
-  { to: '/dashboard', icon: <IconDashboard />, iconLg: <IconDashboard size={22} />, label: 'Dashboard',  color: '#8b5cf6' },
-  { to: '/workout',   icon: <IconWorkout />,   iconLg: <IconWorkout   size={22} />, label: 'Workout',    color: '#ec4899' },
-  { to: '/nutrition', icon: <IconNutrition />, iconLg: <IconNutrition size={22} />, label: 'Nutrition',  color: '#10b981' },
-  { to: '/weight',    icon: <IconWeight />,    iconLg: <IconWeight    size={22} />, label: 'Weight',     color: '#f59e0b' },
-  { to: '/progress',  icon: <IconProgress />,  iconLg: <IconProgress  size={22} />, label: 'Progress',   color: '#60a5fa' },
-  { to: '/pregnancy', icon: <IconPregnancy />, iconLg: <IconPregnancy size={22} />, label: 'Pregnancy',  color: '#f472b6' },
-  { to: '/baby',      icon: <IconBaby />,      iconLg: <IconBaby      size={22} />, label: 'Baby',       color: '#34d399' },
-  { to: '/family',    icon: <IconFamily />,    iconLg: <IconFamily    size={22} />, label: 'Family',     color: '#a78bfa' },
-  { to: '/profile',   icon: <IconProfile />,   iconLg: <IconProfile   size={22} />, label: 'Profile',    color: '#fb923c' },
+  { to: '/dashboard', icon: <IconDashboard />, label: 'Dashboard', color: '#8b5cf6' },
+  { to: '/coach',     icon: <IconCoach />,     label: 'AI Coach',  color: '#a78bfa' },
+  { to: '/workout',   icon: <IconWorkout />,   label: 'Workout',   color: '#ec4899' },
+  { to: '/nutrition', icon: <IconNutrition />, label: 'Nutrition', color: '#10b981' },
+  { to: '/weight',    icon: <IconWeight />,    label: 'Weight',    color: '#f59e0b' },
+  { to: '/progress',  icon: <IconProgress />,  label: 'Progress',  color: '#60a5fa' },
+  { to: '/pregnancy', icon: <IconPregnancy />, label: 'Pregnancy', color: '#f472b6' },
+  { to: '/baby',      icon: <IconBaby />,      label: 'Baby',      color: '#34d399' },
+  { to: '/family',    icon: <IconFamily />,    label: 'Family',    color: '#a78bfa' },
+  { to: '/profile',   icon: <IconProfile />,   label: 'Profile',   color: '#fb923c' },
 ]
 
-// SidebarProps kept for AppLayout compatibility — expanded/setExpanded ignored
+// ── Portal tooltip — renders to document.body, never clipped by overflow ──────
+// This is the key fix: CSS tooltips are clipped when any ancestor has
+// overflow-y:auto/scroll (even if overflow-x:visible is set). By portalling
+// to <body> and positioning with getBoundingClientRect we bypass all clipping.
+interface TooltipPortalProps {
+  label:   string
+  anchor:  React.RefObject<HTMLElement | null>
+  visible: boolean
+}
+
+function TooltipPortal({ label, anchor, visible }: TooltipPortalProps) {
+  const [pos, setPos] = useState({ top: 0, left: 0 })
+
+  useEffect(() => {
+    if (!visible || !anchor.current) return
+    const r  = anchor.current.getBoundingClientRect()
+    setPos({
+      top:  r.top + r.height / 2,
+      left: r.right + 12,
+    })
+  }, [visible, anchor])
+
+  if (!visible) return null
+
+  return createPortal(
+    <div
+      role="tooltip"
+      style={{
+        position:       'fixed',
+        top:            pos.top,
+        left:           pos.left,
+        transform:      'translateY(-50%)',
+        zIndex:         9999,
+        pointerEvents:  'none',
+        // Glassmorphism style
+        background:     'rgb(18 16 34 / 0.97)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        border:         '1px solid rgba(255,255,255,0.12)',
+        borderLeft:     '2px solid rgba(139,92,246,0.75)',
+        color:          'rgba(230,225,255,0.95)',
+        fontSize:       '0.72rem',
+        fontWeight:     700,
+        letterSpacing:  '0.01em',
+        padding:        '0.32rem 0.7rem',
+        borderRadius:   '0.5rem',
+        boxShadow:      '0 4px 20px rgba(0,0,0,0.5), 0 0 0 1px rgba(139,92,246,0.06)',
+        whiteSpace:     'nowrap',
+        // Smooth entrance
+        animation:      'tooltipPortalIn 0.15s ease forwards',
+      }}
+    >
+      {/* Arrow */}
+      <span style={{
+        position:    'absolute',
+        right:       '100%',
+        top:         '50%',
+        transform:   'translateY(-50%)',
+        borderWidth: 5,
+        borderStyle: 'solid',
+        borderColor: 'transparent rgba(139,92,246,0.75) transparent transparent',
+      }} />
+      {label}
+    </div>,
+    document.body,
+  )
+}
+
+// ── Sidebar nav item with portal tooltip ──────────────────────────────────────
+interface NavItemProps {
+  to:       string
+  icon:     React.ReactNode
+  label:    string
+  isActive: boolean
+}
+
+function SidebarNavItem({ to, icon, label, isActive }: NavItemProps) {
+  const [hovered, setHovered] = useState(false)
+  const ref = useRef<HTMLAnchorElement>(null)
+
+  return (
+    <>
+      <NavLink
+        ref={ref}
+        to={to}
+        aria-label={label}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        onFocus={()   => setHovered(true)}
+        onBlur={()    => setHovered(false)}
+        style={{
+          position:        'relative',
+          display:         'flex',
+          alignItems:      'center',
+          justifyContent:  'center',
+          width:           44,
+          height:          40,
+          borderRadius:    '0.625rem',
+          margin:          '0 auto',
+          transition:      'all 0.15s ease',
+          // No white — explicit dark colors only
+          color:    isActive ? 'rgb(196,181,253)' : 'rgba(160,155,200,0.75)',
+          background: isActive
+            ? 'linear-gradient(135deg, rgba(109,67,210,0.75), rgba(109,67,210,0.45))'
+            : hovered
+            ? 'rgba(255,255,255,0.07)'
+            : 'transparent',
+          border: isActive ? '1px solid rgba(139,92,246,0.25)' : '1px solid transparent',
+          boxShadow: isActive ? '0 2px 12px rgba(108,65,210,0.3)' : 'none',
+          outline: 'none',
+          textDecoration: 'none',
+        }}
+      >
+        {icon}
+      </NavLink>
+      <TooltipPortal label={label} anchor={ref} visible={hovered} />
+    </>
+  )
+}
+
+// ── Footer button with portal tooltip ─────────────────────────────────────────
+interface FooterBtnProps {
+  onClick:  () => void
+  icon:     React.ReactNode
+  label:    string
+  danger?:  boolean
+}
+
+function FooterBtn({ onClick, icon, label, danger }: FooterBtnProps) {
+  const [hovered, setHovered] = useState(false)
+  const ref = useRef<HTMLButtonElement>(null)
+
+  return (
+    <>
+      <button
+        ref={ref}
+        onClick={onClick}
+        aria-label={label}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        onFocus={()   => setHovered(true)}
+        onBlur={()    => setHovered(false)}
+        style={{
+          position:       'relative',
+          display:        'flex',
+          alignItems:     'center',
+          justifyContent: 'center',
+          width:          44,
+          height:         40,
+          borderRadius:   '0.625rem',
+          margin:         '0 auto',
+          transition:     'all 0.15s ease',
+          color:   danger && hovered ? 'rgb(248,113,113)' : 'rgba(160,155,200,0.75)',
+          background: hovered
+            ? danger ? 'rgba(239,68,68,0.1)' : 'rgba(255,255,255,0.07)'
+            : 'transparent',
+          border:    '1px solid transparent',
+          outline:   'none',
+          cursor:    'pointer',
+        }}
+      >
+        {icon}
+      </button>
+      <TooltipPortal label={label} anchor={ref} visible={hovered} />
+    </>
+  )
+}
+
+// ── SidebarProps ──────────────────────────────────────────────────────────────
 interface SidebarProps {
-  expanded: boolean
+  expanded:    boolean
   setExpanded: (v: boolean) => void
 }
 
 export default function Sidebar({ }: SidebarProps) {
   const { profile, user } = useAuth()
-  const navigate = useNavigate()
+  const navigate          = useNavigate()
   const [sheetOpen, setSheetOpen] = useState(false)
   const initial = profile?.displayName?.charAt(0)?.toUpperCase()
     ?? user?.email?.charAt(0)?.toUpperCase() ?? 'U'
@@ -122,85 +302,101 @@ export default function Sidebar({ }: SidebarProps) {
 
   return (
     <>
-      {/* ── DESKTOP: icon-only sidebar, always 60px wide ── */}
+      {/* ── DESKTOP sidebar ── */}
       <aside
-        className="g-sidebar hidden md:flex flex-col fixed left-0 top-0 h-full z-40 flex-shrink-0"
-        style={{ overflow: 'visible' }}
         aria-label="Main navigation"
+        className="hidden md:flex flex-col fixed left-0 top-0 h-full z-40 flex-shrink-0"
+        style={{
+          width:               60,
+          background:          'rgb(12 11 22 / 0.97)',
+          backdropFilter:      'blur(28px)',
+          WebkitBackdropFilter:'blur(28px)',
+          borderRight:         '1px solid rgba(255,255,255,0.07)',
+          boxShadow:           '4px 0 24px rgba(0,0,0,0.45)',
+        }}
       >
-        {/* Brand logo */}
-        <div className="flex items-center justify-center h-14 flex-shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        {/* Brand */}
+        <div className="flex items-center justify-center h-14 flex-shrink-0"
+          style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
           <div
-            className="h-8 w-8 rounded-xl gradient-brand flex items-center justify-center text-white font-black text-xs"
-            style={{ boxShadow: '0 4px 14px rgba(108,65,210,0.45)' }}
+            className="gradient-brand"
+            style={{
+              height: 32, width: 32, borderRadius: '0.75rem',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'white', fontWeight: 900, fontSize: '0.7rem',
+              boxShadow: '0 4px 14px rgba(108,65,210,0.45)',
+            }}
           >
             F
           </div>
         </div>
 
-        {/* Nav links */}
-        <nav className="flex-1 overflow-y-auto px-2 py-2 flex flex-col gap-0.5 scrollbar-hide" style={{ overflowX: 'visible' }} aria-label="App pages">
+        {/* Nav links — overflow-y:auto is fine because tooltips portal to body */}
+        <nav
+          aria-label="App pages"
+          className="flex-1 scrollbar-hide"
+          style={{
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            padding:   '0.5rem',
+            display:   'flex',
+            flexDirection: 'column',
+            gap: 2,
+          }}
+        >
           {NAV.map(n => (
-            <NavLink
-              key={n.to}
-              to={n.to}
-              aria-label={n.label}
-              className={({ isActive }) =>
-                `g-sidebar-link ${isActive ? 'g-sidebar-link-active' : ''}`
-              }
-            >
-              {n.icon}
-              {/* Tooltip */}
-              <span className="g-tooltip">{n.label}</span>
-            </NavLink>
+            <NavLink key={n.to} to={n.to} children={({ isActive }) => (
+              <SidebarNavItem to={n.to} icon={n.icon} label={n.label} isActive={isActive} />
+            )} />
           ))}
         </nav>
 
         {/* Divider */}
-        <div className="mx-3 h-px flex-shrink-0" style={{ background: 'rgba(255,255,255,0.06)' }} />
+        <div className="mx-3 flex-shrink-0" style={{ height: 1, background: 'rgba(255,255,255,0.06)' }} />
 
-        {/* Footer: avatar + logout */}
-        <div className="px-2 py-2 flex flex-col gap-0.5 flex-shrink-0" style={{ overflow: 'visible' }}>
-          {/* Avatar */}
-          <button
+        {/* Footer */}
+        <div className="flex flex-col flex-shrink-0" style={{ padding: '0.5rem', gap: 2 }}>
+          {/* Avatar / profile */}
+          <FooterBtn
             onClick={() => navigate('/profile')}
-            aria-label="Profile"
-            className="g-sidebar-link"
-          >
-            <div
-              className="h-7 w-7 rounded-full gradient-brand flex items-center justify-center text-white text-[10px] font-black"
-              style={{ boxShadow: '0 2px 8px rgba(108,65,210,0.4)' }}
-            >
-              {initial}
-            </div>
-            <span className="g-tooltip">{profile?.displayName ?? 'Profile'}</span>
-          </button>
-
+            label={profile?.displayName ?? 'Profile'}
+            icon={
+              <div
+                className="gradient-brand"
+                style={{
+                  height: 28, width: 28, borderRadius: '50%',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: 'white', fontSize: '0.62rem', fontWeight: 900,
+                  boxShadow: '0 2px 8px rgba(108,65,210,0.4)',
+                }}
+              >
+                {initial}
+              </div>
+            }
+          />
           {/* Logout */}
-          <button
+          <FooterBtn
             onClick={handleLogout}
-            aria-label="Sign out"
-            className="g-sidebar-link hover:!text-red-400 hover:!bg-red-500/10"
-          >
-            <IconLogout />
-            <span className="g-tooltip">Sign Out</span>
-          </button>
+            label="Sign Out"
+            icon={<IconLogout />}
+            danger
+          />
         </div>
       </aside>
 
-      {/* ── MOBILE: bottom sheet ── */}
+      {/* ── MOBILE bottom sheet ── */}
       <MobileNav sheetOpen={sheetOpen} setSheetOpen={setSheetOpen} handleLogout={handleLogout} />
     </>
   )
 }
 
-// ── Mobile bottom-sheet nav ────────────────────────────────────────────────────
+// ── Mobile bottom-sheet nav ───────────────────────────────────────────────────
 function MobileNav({
   sheetOpen,
   setSheetOpen,
   handleLogout,
 }: {
-  sheetOpen: boolean
+  sheetOpen:    boolean
   setSheetOpen: (v: boolean) => void
   handleLogout: () => void
 }) {
@@ -220,17 +416,17 @@ function MobileNav({
       <div
         className="fixed left-0 right-0 bottom-0 z-50"
         style={{
-          transform: sheetOpen ? 'translateY(0)' : 'translateY(100%)',
-          transition: 'transform 0.32s cubic-bezier(0.32,0.72,0,1)',
-          borderRadius: '20px 20px 0 0',
-          background: 'rgb(14 13 26 / 0.97)',
-          backdropFilter: 'blur(32px)',
-          WebkitBackdropFilter: 'blur(32px)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          borderBottom: 'none',
-          boxShadow: '0 -8px 40px rgba(0,0,0,0.55)',
-          maxHeight: '88vh',
-          overflowY: 'auto',
+          transform:           sheetOpen ? 'translateY(0)' : 'translateY(100%)',
+          transition:          'transform 0.32s cubic-bezier(0.32,0.72,0,1)',
+          borderRadius:        '20px 20px 0 0',
+          background:          'rgb(12 11 22 / 0.97)',
+          backdropFilter:      'blur(32px)',
+          WebkitBackdropFilter:'blur(32px)',
+          border:              '1px solid rgba(255,255,255,0.08)',
+          borderBottom:        'none',
+          boxShadow:           '0 -8px 40px rgba(0,0,0,0.55)',
+          maxHeight:           '88vh',
+          overflowY:           'auto',
         }}
         role="dialog"
         aria-modal="true"
@@ -238,77 +434,91 @@ function MobileNav({
       >
         {/* Handle */}
         <div className="flex justify-center pt-2.5 pb-1.5">
-          <div className="h-1 w-8 rounded-full" style={{ background: 'rgba(255,255,255,0.15)' }} />
+          <div style={{ height: 4, width: 32, borderRadius: 99, background: 'rgba(255,255,255,0.15)' }} />
         </div>
 
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-2">
           <div className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded-lg gradient-brand flex items-center justify-center text-white font-black text-xs">F</div>
+            <div
+              className="gradient-brand"
+              style={{ height: 28, width: 28, borderRadius: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 900, fontSize: '0.7rem' }}
+            >F</div>
             <div>
               <p className="text-xs font-black gradient-text leading-none">FitvoryaAI</p>
-              <p className="text-[10px] text-text-muted">{profile?.displayName ?? 'User'}</p>
+              <p style={{ fontSize: '0.625rem', color: 'rgba(160,155,200,0.7)' }}>{profile?.displayName ?? 'User'}</p>
             </div>
           </div>
           <button
             onClick={() => setSheetOpen(false)}
-            className="h-7 w-7 rounded-full flex items-center justify-center text-text-muted"
-            style={{ background: 'rgba(255,255,255,0.08)' }}
+            style={{ height: 28, width: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(160,155,200,0.7)', background: 'rgba(255,255,255,0.08)', border: 'none', cursor: 'pointer' }}
           >
             <IconClose size={14} />
           </button>
         </div>
 
-        <div className="mx-4 my-1.5" style={{ height: '1px', background: 'rgba(255,255,255,0.06)' }} />
+        <div style={{ height: 1, margin: '6px 16px', background: 'rgba(255,255,255,0.06)' }} />
 
         {/* Nav grid */}
         <div className="grid grid-cols-4 gap-1.5 px-3 pb-3">
-          {NAV.map((n) => (
+          {NAV.map(n => (
             <NavLink
               key={n.to}
               to={n.to}
               onClick={() => setSheetOpen(false)}
               aria-label={n.label}
-              className="flex flex-col items-center gap-1 p-2 rounded-xl transition-all active:scale-95"
-              style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
             >
               {({ isActive }) => (
-                <>
-                  <div
-                    className="h-9 w-9 rounded-xl flex items-center justify-center transition-all"
-                    style={{
-                      background: isActive ? `${n.color}22` : 'rgba(255,255,255,0.05)',
-                      border: isActive ? `1px solid ${n.color}44` : '1px solid rgba(255,255,255,0.07)',
-                      color: isActive ? n.color : 'rgba(170,165,210,0.75)',
-                      boxShadow: isActive ? `0 2px 10px ${n.color}25` : 'none',
-                    }}
-                  >
+                <div
+                  className="flex flex-col items-center gap-1 p-2 rounded-xl active:scale-95 transition-all"
+                  style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
+                >
+                  <div style={{
+                    height:     36,
+                    width:      36,
+                    borderRadius: '0.625rem',
+                    display:    'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: isActive ? `${n.color}22` : 'rgba(255,255,255,0.05)',
+                    border:     isActive ? `1px solid ${n.color}44` : '1px solid rgba(255,255,255,0.07)',
+                    color:      isActive ? n.color : 'rgba(160,155,200,0.75)',
+                    boxShadow:  isActive ? `0 2px 10px ${n.color}25` : 'none',
+                    transition: 'all 0.15s',
+                  }}>
                     {n.icon}
                   </div>
-                  <span className="text-[9px] font-bold text-center leading-tight"
-                    style={{ color: isActive ? n.color : 'rgba(170,165,210,0.6)' }}>
+                  <span style={{ fontSize: '0.56rem', fontWeight: 700, textAlign: 'center', lineHeight: 1.2, color: isActive ? n.color : 'rgba(160,155,200,0.6)' }}>
                     {n.label}
                   </span>
-                </>
+                </div>
               )}
             </NavLink>
           ))}
         </div>
 
-        <div className="mx-4 mb-2" style={{ height: '1px', background: 'rgba(255,255,255,0.06)' }} />
+        <div style={{ height: 1, margin: '0 16px 8px', background: 'rgba(255,255,255,0.06)' }} />
 
         {/* Sign out */}
         <div className="px-3 pb-6">
           <button
             onClick={() => { setSheetOpen(false); handleLogout() }}
-            className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-xl transition-all"
-            style={{ background: 'rgba(255,75,75,0.07)', border: '1px solid rgba(255,75,75,0.18)' }}
+            style={{
+              display:        'flex',
+              alignItems:     'center',
+              gap:            10,
+              width:          '100%',
+              padding:        '10px 12px',
+              borderRadius:   '0.75rem',
+              background:     'rgba(255,75,75,0.07)',
+              border:         '1px solid rgba(255,75,75,0.18)',
+              cursor:         'pointer',
+            }}
           >
-            <div className="h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0"
-              style={{ background: 'rgba(255,75,75,0.14)', color: 'rgb(248,113,113)' }}>
+            <div style={{ height: 28, width: 28, borderRadius: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,75,75,0.14)', color: 'rgb(248,113,113)', flexShrink: 0 }}>
               <IconLogout size={14} />
             </div>
-            <span className="text-xs font-bold" style={{ color: 'rgb(252,165,165)' }}>Sign Out</span>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'rgb(252,165,165)' }}>Sign Out</span>
           </button>
         </div>
       </div>
@@ -318,8 +528,20 @@ function MobileNav({
         <button
           onClick={() => setSheetOpen(!sheetOpen)}
           aria-label={sheetOpen ? 'Close menu' : 'Open navigation'}
-          className="h-11 w-11 rounded-2xl gradient-brand text-white flex items-center justify-center transition-all duration-300 active:scale-95"
-          style={{ boxShadow: '0 6px 22px rgba(108,65,210,0.55)' }}
+          className="gradient-brand"
+          style={{
+            height:       44,
+            width:        44,
+            borderRadius: '1rem',
+            display:      'flex',
+            alignItems:   'center',
+            justifyContent: 'center',
+            color:        'white',
+            border:       'none',
+            cursor:       'pointer',
+            transition:   'all 0.3s ease',
+            boxShadow:    '0 6px 22px rgba(108,65,210,0.55)',
+          }}
         >
           {sheetOpen ? <IconClose size={18} /> : (
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -330,7 +552,7 @@ function MobileNav({
         </button>
       </div>
 
-      <div className="h-20" aria-hidden="true" />
+      <div style={{ height: 80 }} aria-hidden="true" />
     </div>
   )
 }

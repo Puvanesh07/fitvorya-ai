@@ -153,6 +153,12 @@ service cloud.firestore {
         allow read, write: if isOwner(userId);
       }
 
+      // ── AI Recommendations (daily cache) ─────────────────────────────
+      // Path: users/{uid}/aiRecommendations/{date}
+      match /aiRecommendations/{docId} {
+        allow read, write: if isOwner(userId);
+      }
+
       // ── PREGNANCY ─────────────────────────────────────────────────────────
       // Path: users/{uid}/pregnancy/profile
       // pregnancyService.ts uses setDoc/getDoc on this exact path.

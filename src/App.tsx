@@ -22,6 +22,7 @@ const Nutrition      = lazy(() => import('./pages/Nutrition'))
 const Pregnancy      = lazy(() => import('./pages/Pregnancy'))
 const Baby           = lazy(() => import('./pages/Baby'))
 const Family         = lazy(() => import('./pages/Family'))
+const Coach          = lazy(() => import('./pages/Coach'))
 
 // ── Per-route fallback loaders ────────────────────────────────────────────────
 // Each route gets a themed loader so the user sees something meaningful while
@@ -37,6 +38,7 @@ const ROUTE_LOADERS: Record<string, React.ReactNode> = {
   '/pregnancy':  <PageLoader variant="pregnancy"   />,
   '/family':     <PageLoader variant="family"      />,
   '/profile':    <PageLoader variant="profile"     />,
+  '/coach':      <PageLoader variant="dashboard"   />,
 }
 
 /** Wraps a lazy component with the appropriate themed Suspense fallback. */
@@ -186,6 +188,11 @@ function AppRoutes() {
       <Route path="/profile" element={
         <OnboardedRoute path="/profile">
           <AppLayout><Profile /></AppLayout>
+        </OnboardedRoute>
+      } />
+      <Route path="/coach" element={
+        <OnboardedRoute path="/coach">
+          <AppLayout><Coach /></AppLayout>
         </OnboardedRoute>
       } />
 

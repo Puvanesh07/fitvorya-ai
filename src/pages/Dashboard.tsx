@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import PageLoader from '../components/PageLoader'
+import AICoachCard from '../components/coach/AICoachCard'
 import { computeMetrics } from '../utils/calculations'
 import type { WeightEntry, MealEntry, WaterEntry } from '../types'
 import type { WorkoutSession } from '../types/workout'
@@ -193,6 +194,11 @@ export default function Dashboard() {
             + Start Workout
           </Link>
         </div>
+      </div>
+
+      {/* ── AI Coach Card ── */}
+      <div className="mb-3 sm:mb-5 animate-fade-up opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '25ms' }}>
+        <AICoachCard uid={profile.uid} />
       </div>
 
       {/* ── Row 1 — Overview + Today's Activity + Output + Calories ── */}
