@@ -11,19 +11,22 @@ import PregnancyFoodCategories from '../components/pregnancy/PregnancyFoodCatego
 import PregnancyAIChat         from '../components/pregnancy/PregnancyAIChat'
 import PregnancyMealPlanner    from '../components/pregnancy/PregnancyMealPlanner'
 import PageLoader               from '../components/PageLoader'
+import PregnancyExerciseCoach  from '../components/pregnancy/PregnancyExerciseCoach'
 
-type TabId = 'guide' | 'foods' | 'planner' | 'ai'
+type TabId = 'guide' | 'foods' | 'planner' | 'ai' | 'exercise'
 
 const TABS: { id: TabId; emoji: string; label: string }[] = [
-  { id: 'guide',   emoji: '📖', label: 'Weekly Guide' },
-  { id: 'foods',   emoji: '🥗', label: 'Foods'        },
-  { id: 'planner', emoji: '📅', label: 'Meal Plan'    },
-  { id: 'ai',      emoji: '🤖', label: 'AI Coach'     },
+  { id: 'guide',    emoji: '📖', label: 'Weekly Guide' },
+  { id: 'foods',    emoji: '🥗', label: 'Foods'        },
+  { id: 'planner',  emoji: '📅', label: 'Meal Plan'    },
+  { id: 'exercise', emoji: '🏃', label: 'Exercise'     },
+  { id: 'ai',       emoji: '🤖', label: 'AI Coach'     },
 ]
 
 const FEATURES = [
   { emoji: '📅', title: 'Week-by-Week Guide', desc: 'Nutrition tips for all 40 weeks', color: 'rgb(139 92 246 / 0.12)', border: 'rgb(139 92 246 / 0.22)' },
   { emoji: '🍚', title: 'Tamil Foods',        desc: 'Kambu, Ragi, Keerai & more',     color: 'rgb(132 204 22 / 0.1)',  border: 'rgb(132 204 22 / 0.2)'  },
+  { emoji: '🏃', title: 'Exercise Coach',     desc: 'Safe prenatal workout plans',     color: 'rgb(244 114 182 / 0.1)', border: 'rgb(244 114 182 / 0.2)' },
   { emoji: '🤖', title: 'AI Coach',           desc: 'Ask any pregnancy question',      color: 'rgb(56 189 248 / 0.1)',  border: 'rgb(56 189 248 / 0.2)'  },
   { emoji: '🍽️', title: 'Meal Planner',       desc: '1-day or 7-day personalised',    color: 'rgb(234 179 8 / 0.1)',   border: 'rgb(234 179 8 / 0.2)'   },
 ]
@@ -187,6 +190,12 @@ export default function Pregnancy() {
                   restrictions: profile.restrictions,
                   tamilFoodPreference: profile.tamilFoodPreference,
                 }} />
+              )}
+              {activeTab === 'exercise' && user && (
+                <PregnancyExerciseCoach
+                  pregnancyWeek={displayStage.week}
+                  uid={user.uid}
+                />
               )}
             </div>
 
