@@ -1,28 +1,44 @@
+// ── Family Meal Generator — powered by real food data ─────────────────────────
 import { useState } from 'react'
-import type { FamilyMember, FamilyMeal, CuisinePreference } from '../../types/family'
-import { generateFamilyMeal } from '../../data/familyData'
+import type { FamilyMember, CuisinePreference } from '../../types/family'
+import {
+  regenerateFamilyMeal,
+  type FamilyMealSlot,
+  type FamilyMember as EngineMember,
+} from '../../services/mealPlanEngine'
 
 interface Props {
-  members: FamilyMember[]
+  members:           FamilyMember[]
   cuisinePreference: CuisinePreference
 }
 
-type MealTime = FamilyMeal['mealTime']
+type SlotKey = 'breakfast' | 'lunch' | 'snack' | 'dinner'
 
-const MEAL_TIMES: { value: MealTime; label: string; emoji: string; color: string; bg: string; border: string }[] = [
-  { value: 'breakfast', label: 'Breakfast', emoji: '🌅', color: 'rgb(234 179 8)',   bg: 'rgb(234 179 8 / 0.08)',  border: 'rgb(234 179 8 / 0.2)'  },
-  { value: 'lunch',     label: 'Lunch',     emoji: '☀️', color: 'rgb(34 197 94)',   bg: 'rgb(34 197 94 / 0.08)',  border: 'rgb(34 197 94 / 0.2)'  },
-  { value: 'snack',     label: 'Snack',     emoji: '🍎', color: 'rgb(167 139 250)', bg: 'rgb(167 139 250 / 0.08)',border: 'rgb(167 139 250 / 0.2)'},
-  { value: 'dinner',    label: 'Dinner',    emoji: '🌙', color: 'rgb(56 189 248)',  bg: 'rgb(56 189 248 / 0.08)', border: 'rgb(56 189 248 / 0.2)' },
+const MEAL_TIMES: { value: SlotKey; label: string; emoji: string; color: string; bg: string; border: string }[] = [
+  { value: 'breakfast', label: 'Breakfast', emoji: '🌅', color: 'rgb(234 179 8)',   bg: 'rgb(234 179 8 / 0.08)',  border: 'rgb(234 179 8 / 0.22)'  },
+  { value: 'lunch',     label: 'Lunch',     emoji: '☀️', color: 'rgb(34 197 94)',   bg: 'rgb(34 197 94 / 0.08)',  border: 'rgb(34 197 94 / 0.22)'  },
+  { value: 'snack',     label: 'Snack',     emoji: '🍎', color: 'rgb(167 139 250)', bg: 'rgb(167 139 250 / 0.08)',border: 'rgb(167 139 250 / 0.22)'},
+  { value: 'dinner',    label: 'Dinner',    emoji: '🌙', color: 'rgb(56 189 248)',  bg: 'rgb(56 189 248 / 0.08)', border: 'rgb(56 189 248 / 0.22)' },
 ]
 
 const CUISINE_LABEL: Record<string, string> = {
   tamil: '🇮🇳 Tamil / Indian', global: '🌍 Global', mixed: '✨ Mixed',
 }
 
+function toEngineMembers(members: FamilyMember[]): EngineMember[] {
+  return members.map(m => ({
+    id:            m.id,
+    name:          m.name,
+    role:          m.role,
+    dietPref:      m.dietPref,
+    ageMonths:     m.ageMonths,
+    pregnancyWeek: m.pregnancyWeek,
+  }))
+}
+
 export default function FamilyMealGenerator({ members, cuisinePreference }: Props) {
-  const [selectedTime, setSelectedTime] = useState<MealTime>('dinner')
-  const [meal,         setMeal]         = useState<FamilyMeal | null>(null)
+  const [selectedTime, setSelectedTime] = useState<SlotKey>('dinner')
+  const [meal,         setMeal]         = useState<FamilyMealSlot | null>(null)
   const [generated,    setGenerated]    = useState(false)
 
   if (members.length === 0) {
@@ -35,8 +51,11 @@ export default function FamilyMealGenerator({ members, cuisinePreference }: Prop
     )
   }
 
+  const engineMembers = toEngineMembers(members)
+
   function generate() {
-    setMeal(generateFamilyMeal(members, selectedTime, cuisinePreference))
+    const last = meal?.base.name ? [meal.base.name] : []
+    setMeal(regenerateFamilyMeal(selectedTime, engineMembers, cuisinePreference, last))
     setGenerated(true)
   }
 
@@ -49,10 +68,9 @@ export default function FamilyMealGenerator({ members, cuisinePreference }: Prop
       <div className="g-card p-4 flex flex-col gap-4">
         <h3 className="text-sm font-black text-text-primary flex items-center gap-2">🍽️ Generate Family Meal</h3>
 
-        {/* Meal time grid */}
         <div className="grid grid-cols-4 gap-2">
           {MEAL_TIMES.map(t => (
-            <button key={t.value} onClick={() => setSelectedTime(t.value)}
+            <button key={t.value} type="button" onClick={() => setSelectedTime(t.value)}
               className="g-select-btn flex-col items-center justify-center gap-1 py-2.5"
               style={selectedTime === t.value ? { background: t.bg, borderColor: t.border, color: t.color } : {}}>
               <span className="text-lg">{t.emoji}</span>
@@ -61,41 +79,68 @@ export default function FamilyMealGenerator({ members, cuisinePreference }: Prop
           ))}
         </div>
 
-        {/* Cuisine info row */}
         <div className="g-card-sm px-3 py-2 flex items-center justify-between">
           <span className="text-[11px] text-text-muted">Cuisine</span>
           <span className="text-xs font-bold text-text-secondary">{CUISINE_LABEL[cuisinePreference]}</span>
-          <span className="text-[10px] text-text-muted">Change in Family Settings</span>
         </div>
 
-        <button onClick={generate} className="g-btn g-btn-emerald w-full py-3">
+        <button type="button" onClick={generate} className="g-btn g-btn-emerald w-full py-3">
           ✨ {generated ? 'Regenerate Meal' : 'Generate Family Meal'}
         </button>
       </div>
 
       {/* Disclaimer */}
       <div className="g-disclaimer">
-        ⚠️ <strong>General meal ideas only.</strong> Ensure foods are safe and appropriate for each family member. Consult healthcare providers for medical dietary needs.
+        ⚠️ <strong>General meal ideas only.</strong> All nutrition values come from a real food database.
+        Ensure foods are appropriate for each member.
       </div>
 
       {/* Generated meal */}
       {meal && (
         <div className="flex flex-col gap-3 animate-slide-up">
 
-          {/* Base meal */}
+          {/* Base meal card */}
           <div className="g-card-sm p-4" style={{ background: meta.bg, borderColor: meta.border }}>
-            <div className="flex items-center gap-3 mb-3">
-              <span className="text-3xl">{meal.baseEmoji}</span>
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: meta.color, opacity: 0.8 }}>
+            <div className="flex items-start gap-3 mb-3">
+              <span className="text-3xl flex-shrink-0">{meta.emoji}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5"
+                  style={{ color: meta.color, opacity: 0.8 }}>
                   {meta.label} — Family Base
                 </p>
-                <h3 className="font-black text-text-primary text-base">{meal.baseName}</h3>
+                <h3 className="font-black text-text-primary text-base leading-tight">{meal.base.name}</h3>
+                {/* Macros */}
+                <div className="flex items-center gap-2 flex-wrap mt-1.5">
+                  <span className="text-sm font-black" style={{ color: meta.color }}>{meal.base.totalCalories} kcal</span>
+                  <span className="text-[11px] text-emerald-400">P {meal.base.totalProtein}g</span>
+                  <span className="text-[11px] text-yellow-400">C {meal.base.totalCarbs}g</span>
+                  <span className="text-[11px] text-orange-400">F {meal.base.totalFat}g</span>
+                </div>
               </div>
             </div>
+
+            {/* Food items */}
+            <div className="flex flex-col gap-1.5 mb-3">
+              {meal.base.foods.map(({ food, grams }, i) => {
+                const cal = Math.round(food.calories * grams / 100)
+                return (
+                  <div key={i} className="flex items-center justify-between px-3 py-2 rounded-xl"
+                    style={{ background: 'rgb(255 255 255 / 0.05)' }}>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-text-primary truncate">{food.name}</p>
+                      <p className="text-[10px] text-text-muted">{grams}g{food.servingUnit ? ` · ${food.servingUnit}` : ''}</p>
+                    </div>
+                    <p className="text-xs font-bold flex-shrink-0 ml-2" style={{ color: meta.color }}>{cal} kcal</p>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Nutrient badges */}
             <div className="flex flex-wrap gap-1.5">
-              {meal.nutrients.map(n => (
-                <span key={n} className="g-badge" style={{ background: `${meta.color}18`, borderColor: `${meta.color}30`, color: meta.color }}>
+              {meal.base.nutrients.map(n => (
+                <span key={n} className="g-badge"
+                  style={{ background: `${meta.color}18`, borderColor: `${meta.color}30`, color: meta.color }}>
                   {n}
                 </span>
               ))}
@@ -104,40 +149,30 @@ export default function FamilyMealGenerator({ members, cuisinePreference }: Prop
 
           {/* Per-member adaptations */}
           <div>
-            <p className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-2 px-0.5">👨‍👩‍👧 Adaptations for Each Member</p>
+            <p className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-2 px-0.5">
+              👨‍👩‍👧 Adaptations for Each Member
+            </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {meal.adaptations.map(a => {
-                const member = members.find(m => m.id === a.memberId)
-                void member // role config available for future use
-                return (
-                  <div key={a.memberId} className="g-card p-3 flex flex-col gap-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
-                        style={{ background: 'rgb(16 185 129 / 0.12)', border: '1px solid rgb(16 185 129 / 0.22)' }}>
-                        {a.memberEmoji}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-bold text-text-primary text-xs truncate">{a.memberName}</p>
-                        <p className="text-[10px] text-text-muted">{a.portion}</p>
-                      </div>
+              {meal.adaptations.map(a => (
+                <div key={a.memberId} className="g-card p-3 flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
+                      style={{ background: 'rgb(16 185 129 / 0.12)', border: '1px solid rgb(16 185 129 / 0.22)' }}>
+                      {a.emoji}
                     </div>
-                    <p className="text-xs text-text-secondary leading-relaxed">{a.description}</p>
-                    {a.texture && (
-                      <span className="g-badge w-fit capitalize" style={{ background: 'rgb(32 195 190 / 0.1)', borderColor: 'rgb(32 195 190 / 0.22)', color: 'rgb(94 234 212)' }}>
-                        Texture: {a.texture.replace(/_/g, ' ')}
-                      </span>
-                    )}
-                    {a.notes && (
-                      <p className="text-[10px] text-text-muted italic leading-relaxed">💡 {a.notes}</p>
-                    )}
+                    <div className="min-w-0">
+                      <p className="font-bold text-text-primary text-xs truncate">{a.memberName}</p>
+                      <p className="text-[10px] text-text-muted">{a.portion}</p>
+                    </div>
                   </div>
-                )
-              })}
+                  <p className="text-xs text-text-secondary leading-relaxed">{a.note}</p>
+                </div>
+              ))}
             </div>
           </div>
 
           <p className="text-center text-[10px] text-text-muted">
-            Not happy with this? Tap <strong>Regenerate</strong> for a different suggestion.
+            Not happy? Tap <strong>Regenerate</strong> for a different suggestion.
           </p>
         </div>
       )}

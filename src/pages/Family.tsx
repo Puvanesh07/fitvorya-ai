@@ -19,7 +19,7 @@ type TabId = 'members' | 'meal' | 'planner' | 'shopping' | 'ai'
 
 const TABS: { id: TabId; emoji: string; label: string }[] = [
   { id: 'members',  emoji: '👨‍👩‍👧', label: 'Family'   },
-  { id: 'meal',     emoji: '🍽️',    label: 'Meal'     },
+  { id: 'meal',     emoji: '🍽️',    label: 'Meals'    },
   { id: 'planner',  emoji: '📅',    label: 'Planner'  },
   { id: 'shopping', emoji: '🛒',    label: 'Shopping' },
   { id: 'ai',       emoji: '🤖',    label: 'AI Coach' },

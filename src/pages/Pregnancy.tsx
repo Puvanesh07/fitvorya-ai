@@ -16,11 +16,11 @@ import PregnancyExerciseCoach  from '../components/pregnancy/PregnancyExerciseCo
 type TabId = 'guide' | 'foods' | 'planner' | 'ai' | 'exercise'
 
 const TABS: { id: TabId; emoji: string; label: string }[] = [
-  { id: 'guide',    emoji: '📖', label: 'Weekly Guide' },
-  { id: 'foods',    emoji: '🥗', label: 'Foods'        },
-  { id: 'planner',  emoji: '📅', label: 'Meal Plan'    },
-  { id: 'exercise', emoji: '🏃', label: 'Exercise'     },
-  { id: 'ai',       emoji: '🤖', label: 'AI Coach'     },
+  { id: 'guide',    emoji: '📖', label: 'Guide'     },
+  { id: 'foods',    emoji: '🥗', label: 'Foods'     },
+  { id: 'planner',  emoji: '📅', label: 'Meal Plan' },
+  { id: 'exercise', emoji: '🏃', label: 'Exercise'  },
+  { id: 'ai',       emoji: '🤖', label: 'AI Coach'  },
 ]
 
 const FEATURES = [
@@ -177,7 +177,11 @@ export default function Pregnancy() {
                 <PregnancyWeeklyGuide stage={displayStage} monthGuide={monthGuide} weekGuide={weekGuide} tamilPref={profile.tamilFoodPreference} />
               )}
               {activeTab === 'foods' && (
-                <PregnancyFoodCategories tamilPref={profile.tamilFoodPreference} />
+                <PregnancyFoodCategories
+                  tamilPref={profile.tamilFoodPreference}
+                  week={displayStage.week}
+                  trimester={displayStage.trimester}
+                />
               )}
               {activeTab === 'planner' && (
                 <PregnancyMealPlanner week={displayStage.week} dietType={profile.dietType} tamilPref={profile.tamilFoodPreference} />

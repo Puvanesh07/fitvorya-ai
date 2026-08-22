@@ -1,16 +1,18 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import PageLoader from '../components/PageLoader'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { computeMetrics } from '../utils/calculations'
 import {
-  searchFood, logMeal, fetchMealsForDate, removeMeal,
+  logMeal, fetchMealsForDate, removeMeal,
   logWater, fetchWaterForDate, removeWater,
 } from '../services/nutritionService'
 import type { FoodItem, MealEntry, MealType, WaterEntry } from '../types/nutrition'
+import type { UnifiedFood } from '../types/food'
 import { MEAL_LABELS, MEAL_ICONS, scaleMacros, sumNutrition, sumWater } from '../types/nutrition'
 import { localTodayISO, formatFullDate } from '../utils/format'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
+import FoodSearch from '../components/food/FoodSearch'
 
 const WATER_PRESETS = [250, 500, 750, 1000]
 const MACRO_COLORS = { protein: '#8b5cf6', carbs: '#ec4899', fat: '#f59e0b' }
@@ -296,145 +298,179 @@ export default function Nutrition() {
 }
 
 // ── Add Food Modal ─────────────────────────────────────────────────────────────
+// Uses unified FoodSearch component — same service as Pregnancy/Baby/Family.
 function AddFoodModal({ uid, date, meal, onClose, onAdded }: {
   uid: string; date: string; meal: MealType; onClose: () => void; onAdded: () => void
 }) {
-  const [query, setQuery]       = useState('')
-  const [results, setResults]   = useState<FoodItem[]>([])
-  const [selected, setSelected] = useState<FoodItem | null>(null)
-  const [grams, setGrams]       = useState('100')
-  const [searching, setSearching] = useState(false)
-  const [adding, setAdding]     = useState(false)
+  const accentColor = MEAL_CARD_COLORS[meal].accent
+  const [selected,  setSelected]  = useState<UnifiedFood | null>(null)
+  const [grams,     setGrams]     = useState('100')
+  const [adding,    setAdding]    = useState(false)
+  const [addError,  setAddError]  = useState(false)
 
-  async function handleSearch(e: FormEvent) {
-    e.preventDefault()
-    if (!query.trim()) return
-    setSearching(true)
-    const foods = await searchFood(query)
-    setResults(foods); setSearching(false)
-  }
+  const previewMacros = selected ? scaleMacros(selected as FoodItem, Number(grams) || 100) : null
 
   async function handleAdd() {
-    if (!selected || !grams) return
+    if (!selected) return
+    const g = Number(grams)
+    if (!g || g <= 0) return
     setAdding(true)
-    await logMeal(uid, selected, Number(grams), meal, date)
-    onAdded(); onClose()
+    setAddError(false)
+    try {
+      await logMeal(uid, selected as FoodItem, g, meal, date)
+      onAdded()
+      onClose()
+    } catch {
+      setAddError(true)
+      setAdding(false)
+    }
   }
 
-  const previewMacros = selected ? scaleMacros(selected, Number(grams) || 100) : null
+  function handleSelect(food: UnifiedFood) {
+    setSelected(food)
+    setGrams(String((food as FoodItem).servingSize ?? 100))
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full max-w-2xl animate-scale-in">
-        <div className="card card-shadow p-6 rounded-2xl max-h-[88vh] overflow-y-auto"
-          style={{ border: '1px solid rgba(108,65,210,0.25)' }}>
+        <div className="card card-shadow p-5 rounded-2xl max-h-[92vh] overflow-y-auto"
+          style={{ border: `1px solid ${accentColor}33` }}>
 
+          {/* Header */}
           <div className="flex items-center justify-between mb-5">
             <div>
               <h2 className="text-lg font-black text-text-primary">Add Food</h2>
-              <p className="text-xs text-text-muted mt-0.5">to {MEAL_LABELS[meal]}</p>
+              <p className="text-xs text-text-muted mt-0.5">
+                {MEAL_ICONS[meal]} to {MEAL_LABELS[meal]}
+              </p>
             </div>
             <button onClick={onClose} aria-label="Close"
               className="h-9 w-9 rounded-xl flex items-center justify-center text-text-muted hover:text-text-primary transition-colors"
               style={{ background: 'rgba(255,255,255,0.06)' }}>✕</button>
           </div>
 
-          {!selected ? (
-            <>
-              <form onSubmit={handleSearch} className="flex gap-3 mb-4">
-                <input type="text" value={query} onChange={e => setQuery(e.target.value)}
-                  className="input flex-1" placeholder="Search food (e.g. idli, chicken, banana)" />
-                <button type="submit" disabled={searching} className="btn-purple px-5 flex-shrink-0">
-                  {searching ? <LoadingSpinner size="sm" /> : '🔍'}
-                </button>
-              </form>
+          {/* ── Step 1: Search ── */}
+          {!selected && (
+            <FoodSearch
+              contextId={`nutrition-${meal}`}
+              accentColor={accentColor}
+              onSelect={handleSelect}
+              maxResults={15}
+              autoFocus
+            />
+          )}
 
-              <div className="flex flex-col gap-2 max-h-72 overflow-y-auto scrollbar-hide">
-                {results.map(f => (
-                  <button key={f.fdcId}
-                    onClick={() => { setSelected(f); setGrams(String(f.servingSize ?? 100)) }}
-                    className="flex items-center justify-between p-3.5 rounded-xl text-left transition-all"
-                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
-                    onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(108,65,210,0.5)')}
-                    onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)')}>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-text-primary truncate">{f.name}</p>
-                      {f.brand && <p className="text-xs text-text-muted">{f.brand}</p>}
-                      <p className="text-xs text-text-muted mt-0.5">
-                        {f.calories} kcal · P:{f.protein}g C:{f.carbs}g F:{f.fat}g
-                      </p>
-                    </div>
-                    <span className="text-purple-400 text-lg ml-3">→</span>
-                  </button>
-                ))}
-                {results.length === 0 && !searching && (
-                  <div className="flex flex-col items-center py-8 gap-2 opacity-40">
-                    <span className="text-3xl">🔍</span>
-                    <p className="text-sm text-text-muted">Search to find foods</p>
-                  </div>
-                )}
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="card-purple p-4 rounded-xl mb-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <p className="text-sm font-black text-text-primary">{selected.name}</p>
-                    {selected.brand && <p className="text-xs text-text-muted mt-0.5">{selected.brand}</p>}
-                    <p className="text-xs text-text-muted mt-1">Per 100g: {selected.calories} kcal</p>
-                  </div>
-                  <button onClick={() => setSelected(null)}
-                    className="text-xs font-bold text-purple-400 hover:text-purple-300 transition-colors">
-                    Change
-                  </button>
+          {/* ── Step 2: Portion + Nutrition preview ── */}
+          {selected && (
+            <div className="flex flex-col gap-4 animate-fade-in">
+
+              {/* Selected food header */}
+              <div className="flex items-start justify-between gap-3 p-4 rounded-xl"
+                style={{ background: `${accentColor}12`, border: `1px solid ${accentColor}30` }}>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-black text-text-primary leading-tight">{selected.name}</p>
+                  {selected.brand && (
+                    <p className="text-xs text-text-muted mt-0.5">{selected.brand}</p>
+                  )}
+                  <p className="text-xs text-text-muted mt-1">
+                    Per 100g: <span className="font-bold" style={{ color: accentColor }}>{selected.calories} kcal</span>
+                    {' · '}P:{selected.protein}g C:{selected.carbs}g F:{selected.fat}g
+                  </p>
                 </div>
+                <button type="button" onClick={() => { setSelected(null); setGrams('100') }}
+                  className="text-xs font-bold flex-shrink-0 px-2 py-1 rounded-lg transition-all"
+                  style={{ color: accentColor, background: `${accentColor}15` }}>
+                  Change
+                </button>
               </div>
 
-              <div className="mb-4">
-                <label className="block text-sm font-bold text-text-primary mb-2">Serving Size (grams)</label>
-                {selected.servingSize && selected.servingUnit && (
+              {/* Serving size selector */}
+              <div>
+                <label className="block text-xs font-bold text-text-muted uppercase tracking-wider mb-2">
+                  Serving Size (grams)
+                </label>
+                {(selected as FoodItem).servingSize && (selected as FoodItem).servingUnit && (
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xs text-text-muted">Typical: <strong className="text-text-primary">{selected.servingUnit}</strong> ≈ {selected.servingSize}g</span>
-                    <button type="button" onClick={() => setGrams(String(selected.servingSize))}
-                      className="text-xs font-bold text-purple-400 border border-purple-600/40 rounded-lg px-2 py-0.5 hover:bg-purple-600/10 transition-colors">
+                    <span className="text-xs text-text-muted">
+                      Typical: <strong className="text-text-primary">{(selected as FoodItem).servingUnit}</strong>
+                      {' ≈ '}{(selected as FoodItem).servingSize}g
+                    </span>
+                    <button type="button"
+                      onClick={() => setGrams(String((selected as FoodItem).servingSize))}
+                      className="text-xs font-bold px-2.5 py-0.5 rounded-lg transition-all"
+                      style={{ color: accentColor, border: `1px solid ${accentColor}50`, background: `${accentColor}12` }}>
                       Use
                     </button>
                   </div>
                 )}
+                {/* Quick gram presets */}
+                <div className="flex gap-2 mb-2">
+                  {[50, 100, 150, 200].map(g => (
+                    <button key={g} type="button" onClick={() => setGrams(String(g))}
+                      className="flex-1 py-1.5 rounded-lg text-xs font-bold transition-all"
+                      style={Number(grams) === g
+                        ? { background: accentColor, color: 'white' }
+                        : { background: 'rgba(255,255,255,0.05)', color: 'rgb(var(--text-secondary))', border: '1px solid rgba(255,255,255,0.08)' }}>
+                      {g}g
+                    </button>
+                  ))}
+                </div>
                 <input type="number" value={grams} onChange={e => setGrams(e.target.value)}
-                  className="input" min={1} step={1} />
+                  className="input w-full" min={1} step={1} placeholder="Enter grams" />
               </div>
 
+              {/* Nutrition preview */}
               {previewMacros && (
-                <div className="card-yellow p-4 rounded-xl mb-5">
-                  <p className="text-xs font-bold text-text-muted mb-3">Nutrition for {grams}g</p>
-                  <div className="grid grid-cols-4 gap-3 text-center">
+                <div className="p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <p className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-3">
+                    Nutrition for {grams}g
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
                     {[
-                      { label: 'Calories', value: previewMacros.calories },
-                      { label: 'Protein',  value: `${Math.round(previewMacros.protein)}g` },
-                      { label: 'Carbs',    value: `${Math.round(previewMacros.carbs)}g`   },
-                      { label: 'Fat',      value: `${Math.round(previewMacros.fat)}g`     },
+                      { label: 'Calories', value: `${previewMacros.calories}`,            color: accentColor },
+                      { label: 'Protein',  value: `${Math.round(previewMacros.protein)}g`, color: '#8b5cf6' },
+                      { label: 'Carbs',    value: `${Math.round(previewMacros.carbs)}g`,   color: '#ec4899' },
+                      { label: 'Fat',      value: `${Math.round(previewMacros.fat)}g`,     color: '#f59e0b' },
                     ].map(n => (
-                      <div key={n.label}>
-                        <p className="text-[10px] text-text-muted font-bold uppercase tracking-wide">{n.label}</p>
-                        <p className="text-lg font-black text-text-primary mt-0.5">{n.value}</p>
+                      <div key={n.label} className="p-2 rounded-lg" style={{ background: `${n.color}10` }}>
+                        <p className="text-[9px] text-text-muted font-bold uppercase tracking-wide">{n.label}</p>
+                        <p className="text-base font-black mt-0.5" style={{ color: n.color }}>{n.value}</p>
                       </div>
                     ))}
                   </div>
+                  {previewMacros.fiber > 0 && (
+                    <p className="text-[10px] text-text-muted text-center mt-2">
+                      Fibre: {previewMacros.fiber}g
+                    </p>
+                  )}
                 </div>
               )}
 
+              {/* Error state */}
+              {addError && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl"
+                  style={{ background: 'rgb(239 68 68 / 0.1)', border: '1px solid rgb(239 68 68 / 0.25)' }}>
+                  <span className="text-red-400 text-sm">⚠</span>
+                  <p className="text-xs text-red-300">Failed to add food. Check your connection and try again.</p>
+                </div>
+              )}
+
+              {/* Actions */}
               <div className="flex gap-3">
-                <button onClick={() => setSelected(null)} className="btn-ghost flex-1">← Back</button>
-                <button onClick={handleAdd} disabled={adding} className="btn-purple flex-1">
+                <button type="button" onClick={() => { setSelected(null); setGrams('100') }}
+                  className="btn-ghost flex-1">
+                  ← Back
+                </button>
+                <button type="button" onClick={handleAdd} disabled={adding || !grams || Number(grams) <= 0}
+                  className="btn-purple flex-1 flex items-center justify-center gap-2">
                   {adding && <LoadingSpinner size="sm" />}
-                  Add to {MEAL_LABELS[meal]}
+                  {adding ? 'Adding…' : `Add to ${MEAL_LABELS[meal]}`}
                 </button>
               </div>
-            </>
+            </div>
           )}
         </div>
       </div>

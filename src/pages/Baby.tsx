@@ -186,7 +186,11 @@ export default function Baby() {
                 <BabyStageGuide guide={selectedGuide} stage={selectedStage} tamilPref={profile.tamilFoodPreference} />
               )}
               {activeTab === 'foods' && (
-                <BabyFoodCategories ageMonths={getStageById(selectedStageId).ageRangeMonths[0]} tamilPref={profile.tamilFoodPreference} />
+                <BabyFoodCategories
+                  ageMonths={getStageById(selectedStageId).ageRangeMonths[0]}
+                  tamilPref={profile.tamilFoodPreference}
+                  selectedStageId={selectedStageId}
+                />
               )}
               {activeTab === 'tracker' && user && (
                 <BabyFoodIntroTracker uid={user.uid} records={introRecords} onRecordsChange={setIntroRecords} />

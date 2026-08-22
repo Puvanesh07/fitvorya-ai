@@ -13,27 +13,98 @@ import {
 //      VITE_USDA_API_KEY from .env — no Netlify dev server needed.
 //   4. If the API call fails for any reason, gracefully fall back to locals.
 
-const IS_DEV = import.meta.env.DEV
+const IS_DEV      = import.meta.env.DEV
 const USDA_API_KEY = import.meta.env.VITE_USDA_API_KEY ?? ''
-const USDA_BASE = 'https://api.nal.usda.gov/fdc/v1'
+const USDA_BASE    = 'https://api.nal.usda.gov/fdc/v1'
+
+// ── In-memory search cache (TTL 10 min) ──────────────────────────────────────
+interface CacheEntry { items: FoodItem[]; expires: number }
+const _searchCache = new Map<string, CacheEntry>()
+const CACHE_TTL    = 10 * 60 * 1000
+
+function cacheGet(key: string): FoodItem[] | null {
+  const e = _searchCache.get(key)
+  if (!e) return null
+  if (Date.now() > e.expires) { _searchCache.delete(key); return null }
+  return e.items
+}
+function cacheSet(key: string, items: FoodItem[]) {
+  if (_searchCache.size >= 80) {
+    const oldest = _searchCache.keys().next().value
+    if (oldest) _searchCache.delete(oldest)
+  }
+  _searchCache.set(key, { items, expires: Date.now() + CACHE_TTL })
+}
+
+// ── Relevance scorer: higher = better match ──────────────────────────────────
+// Ranking priority:
+//   100 = exact name match
+//    92 = name starts with query + space (e.g. "beef " in "beef steak")
+//    90 = name starts with query
+//    85 = query appears as a whole word inside name
+//    80 = name contains the full query string
+//    70 = all query words present in name
+//    60 = name starts with first query word
+//    50 = first query word appears in name
+//    30 = some (but not all) query words present
+//     0 = no match (excluded)
+function scoreRelevance(name: string, query: string): number {
+  const n = name.toLowerCase()
+  const q = query.toLowerCase().trim()
+  if (!q) return 0
+  const words = q.split(/\s+/).filter(Boolean)
+
+  if (n === q)                              return 100
+  if (n.startsWith(q + ' '))               return 92
+  if (n.startsWith(q))                     return 90
+  if (n.includes(' ' + q + ' '))           return 85
+  if (n.includes(' ' + q))                 return 84
+  if (n.endsWith(' ' + q))                 return 83
+  if (n.includes(q))                       return 80
+  if (words.length > 1 && words.every(w => n.includes(w))) return 70
+  if (n.startsWith(words[0] + ' '))        return 62
+  if (n.startsWith(words[0]))              return 60
+  if (n.includes(' ' + words[0] + ' '))   return 52
+  if (n.includes(words[0]))               return 50
+  const matchCount = words.filter(w => n.includes(w)).length
+  if (matchCount >= words.length - 1 && matchCount > 0) return 35
+  if (matchCount > 0)                      return 30
+  return 0
+}
+
+// ── In-flight request cancellation ───────────────────────────────────────────
+let _activeController: AbortController | null = null
 
 export async function searchFood(query: string): Promise<FoodItem[]> {
   const trimmed = query.trim()
-  if (trimmed.length < 2) return FALLBACK_FOODS.slice(0, 10)
+  if (trimmed.length < 2) return []
 
-  // Always search local first — instant
-  const localMatches = FALLBACK_FOODS.filter(f =>
-    f.name.toLowerCase().includes(trimmed.toLowerCase()),
-  )
+  const cacheKey = trimmed.toLowerCase()
+  const cached   = cacheGet(cacheKey)
+  if (cached) return cached
+
+  // Cancel any previous in-flight request
+  _activeController?.abort()
+  _activeController = new AbortController()
+  const { signal } = _activeController
+
+  // ── 1. Score and rank local DB immediately ────────────────────────────────
+  const localScored = FALLBACK_FOODS
+    .map(f => ({ f, score: scoreRelevance(f.name, trimmed) }))
+    .filter(x => x.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .map(x => x.f)
+
+  const seen   = new Set(localScored.map(f => f.fdcId))
+  const merged = [...localScored]
 
   try {
     let apiItems: FoodItem[] = []
 
     if (IS_DEV && USDA_API_KEY) {
-      // ── Dev: call USDA directly ──────────────────────────────────────────
-      const res = await fetch(
-        `${USDA_BASE}/foods/search?query=${encodeURIComponent(trimmed)}&pageSize=15&api_key=${USDA_API_KEY}`,
-      )
+      // Dev: call USDA directly with score-sorted results
+      const url = `${USDA_BASE}/foods/search?query=${encodeURIComponent(trimmed)}&pageSize=20&api_key=${USDA_API_KEY}&dataType=Foundation,SR%20Legacy,Branded&sortBy=score&sortOrder=desc`
+      const res = await fetch(url, { signal })
       if (!res.ok) throw new Error(`USDA HTTP ${res.status}`)
       const data = await res.json() as {
         foods: Array<{
@@ -42,47 +113,65 @@ export async function searchFood(query: string): Promise<FoodItem[]> {
           servingSize?: number; servingSizeUnit?: string
         }>
       }
-
-      apiItems = (data.foods ?? []).map(f => {
-        const get = (id: number) =>
-          f.foodNutrients.find(n => n.nutrientId === id)?.value ?? 0
-        return {
-          fdcId:       String(f.fdcId),
-          name:        f.description,
-          brand:       f.brandOwner,
-          calories:    Math.round(get(1008)),
-          protein:     Math.round(get(1003) * 10) / 10,
-          carbs:       Math.round(get(1005) * 10) / 10,
-          fat:         Math.round(get(1004) * 10) / 10,
-          fiber:       Math.round(get(1079) * 10) / 10,
-          servingSize: f.servingSize ?? undefined,
-          servingUnit: f.servingSizeUnit ?? undefined,
-        } satisfies FoodItem
-      })
+      apiItems = (data.foods ?? [])
+        .filter(f => f.description)
+        .map(f => {
+          const get = (id: number) => f.foodNutrients.find(n => n.nutrientId === id)?.value ?? 0
+          // ID 1008 = Energy (kcal), ID 1062 = Energy (kJ) — convert kJ→kcal as fallback
+          const kcal = get(1008) || Math.round(get(1062) / 4.184)
+          return {
+            fdcId:       String(f.fdcId),
+            name:        titleCase(f.description),
+            brand:       f.brandOwner,
+            calories:    Math.round(kcal),
+            protein:     r1(get(1003)),
+            carbs:       r1(get(1005)),
+            fat:         r1(get(1004)),
+            fiber:       r1(get(1079)),
+            servingSize: f.servingSize ?? undefined,
+            servingUnit: f.servingSizeUnit ?? undefined,
+          } satisfies FoodItem
+        })
+        .filter(f => f.calories > 0 || f.protein > 0 || f.carbs > 0 || f.fat > 0)
     } else if (!IS_DEV) {
-      // ── Production: use Netlify function (key stays server-side) ─────────
+      // Production: Netlify function (USDA key stays server-side)
       const res = await fetch('/.netlify/functions/searchFood', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ query: trimmed }),
+        body:    JSON.stringify({ query: trimmed, maxResults: 20 }),
+        signal,
       })
       if (!res.ok) throw new Error(`Netlify fn HTTP ${res.status}`)
       const data = await res.json() as { foods: FoodItem[] }
       apiItems = data.foods ?? []
     }
 
-    // Merge: locals first, then API results (dedup by fdcId)
-    const seen = new Set(localMatches.map(f => f.fdcId))
-    const merged = [...localMatches]
+    // Merge API results (dedup by fdcId), then re-rank the whole list
     for (const f of apiItems) {
       if (!seen.has(f.fdcId)) { merged.push(f); seen.add(f.fdcId) }
     }
-    return merged.slice(0, 20)
-  } catch {
-    // Network error / missing key → use local DB only
-    return localMatches.length > 0 ? localMatches : FALLBACK_FOODS.slice(0, 10)
+
+    // Final rank: score all merged results against the original query
+    const ranked = merged
+      .map(f => ({ f, score: scoreRelevance(f.name, trimmed) }))
+      .filter(x => x.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .map(x => x.f)
+      .slice(0, 20)
+
+    cacheSet(cacheKey, ranked)
+    return ranked
+  } catch (err) {
+    if ((err as Error).name === 'AbortError') return []
+    // Network error → return ranked local results only
+    const fallback = localScored.slice(0, 15)
+    if (fallback.length > 0) return fallback
+    return []
   }
 }
+
+function r1(v: number) { return Math.round(v * 10) / 10 }
+function titleCase(s: string) { return s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase()).trim() }
 
 // ── Food database — global + Indian ──────────────────────────────────────────
 // ALL values are per 100g. For serving-based items, servingSize (grams) and
@@ -104,6 +193,21 @@ export const FALLBACK_FOODS: FoodItem[] = [
   { fdcId: 'f13', name: 'Whole Milk',                 calories: 61,  protein: 3.2,  carbs: 4.8,  fat: 3.3,  fiber: 0,   servingSize: 240, servingUnit: '1 cup (240ml)' },
   { fdcId: 'f14', name: 'Whole Wheat Bread',          calories: 247, protein: 13,   carbs: 41,   fat: 4,    fiber: 7,   servingSize: 30, servingUnit: '1 slice' },
   { fdcId: 'f15', name: 'White Rice (cooked)',        calories: 130, protein: 2.7,  carbs: 28,   fat: 0.3,  fiber: 0.4 },
+  { fdcId: 'f16', name: 'Beef (cooked, lean)',        calories: 250, protein: 26,   carbs: 0,    fat: 15,   fiber: 0   },
+  { fdcId: 'f17', name: 'Ground Beef (cooked)',       calories: 215, protein: 26,   carbs: 0,    fat: 11,   fiber: 0   },
+  { fdcId: 'f18', name: 'Beef Steak (cooked)',        calories: 271, protein: 25,   carbs: 0,    fat: 18,   fiber: 0   },
+  { fdcId: 'f19', name: 'Pork Chop (cooked)',         calories: 231, protein: 25,   carbs: 0,    fat: 14,   fiber: 0   },
+  { fdcId: 'f20', name: 'Turkey Breast (cooked)',     calories: 135, protein: 30,   carbs: 0,    fat: 0.7,  fiber: 0   },
+  { fdcId: 'f21', name: 'Shrimp (cooked)',            calories: 99,  protein: 24,   carbs: 0.2,  fat: 0.3,  fiber: 0   },
+  { fdcId: 'f22', name: 'Quinoa (cooked)',            calories: 120, protein: 4.4,  carbs: 21,   fat: 1.9,  fiber: 2.8 },
+  { fdcId: 'f23', name: 'Lentils (cooked)',           calories: 116, protein: 9,    carbs: 20,   fat: 0.4,  fiber: 8   },
+  { fdcId: 'f24', name: 'Black Beans (cooked)',       calories: 132, protein: 8.9,  carbs: 24,   fat: 0.5,  fiber: 8.7 },
+  { fdcId: 'f25', name: 'Avocado',                    calories: 160, protein: 2,    carbs: 8.5,  fat: 15,   fiber: 6.7 },
+  { fdcId: 'f26', name: 'Spinach (cooked)',           calories: 23,  protein: 2.9,  carbs: 3.6,  fat: 0.3,  fiber: 2.4 },
+  { fdcId: 'f27', name: 'Carrot (cooked)',            calories: 35,  protein: 0.8,  carbs: 8,    fat: 0.2,  fiber: 3   },
+  { fdcId: 'f28', name: 'Tomato',                     calories: 18,  protein: 0.9,  carbs: 3.9,  fat: 0.2,  fiber: 1.2 },
+  { fdcId: 'f29', name: 'Cucumber',                   calories: 15,  protein: 0.7,  carbs: 3.6,  fat: 0.1,  fiber: 0.5 },
+  { fdcId: 'f30', name: 'Orange',                     calories: 47,  protein: 0.9,  carbs: 12,   fat: 0.1,  fiber: 2.4 },
 
   // ── South Indian — all per 100g ───────────────────────────────────────────
   // Idli: 1 piece ≈ 45g, ~39 kcal → per 100g = 87 kcal
