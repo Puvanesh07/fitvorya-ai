@@ -12,6 +12,7 @@
  */
 
 import { useState } from 'react'
+import ExerciseVisual from '../ExerciseVisual'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -639,10 +640,20 @@ export default function PregnancyExerciseAnimation({ exercise, week, size = 100 
       {/* Animation + info row */}
       <div className="flex items-start gap-4 w-full">
 
-        {/* Animated figure */}
-        <div className="flex-shrink-0 flex items-center justify-center rounded-2xl p-3"
-          style={{ background: 'rgb(244 114 182 / 0.08)', border: '1px solid rgb(244 114 182 / 0.15)', minWidth: size + 16 }}>
-          <PregFigure motion={exercise.motion} week={week} size={size} />
+        {/* Real demo video / animation when available, else bump-aware SVG figure */}
+        <div className="flex-shrink-0">
+          <ExerciseVisual
+            key={exercise.id}
+            exerciseId={exercise.id}
+            exerciseName={exercise.name}
+            size={size + 30}
+            fallback={
+              <div className="flex-shrink-0 flex items-center justify-center rounded-2xl p-3"
+                style={{ background: 'rgb(244 114 182 / 0.08)', border: '1px solid rgb(244 114 182 / 0.15)', minWidth: size + 16 }}>
+                <PregFigure motion={exercise.motion} week={week} size={size} />
+              </div>
+            }
+          />
         </div>
 
         {/* Info panel */}

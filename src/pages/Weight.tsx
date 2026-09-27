@@ -2,14 +2,15 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { useAuth } from '../context/AuthContext'
 import PageLoader from '../components/PageLoader'
 import LoadingSpinner from '../components/LoadingSpinner'
-import { addWeight, fetchWeightHistory, removeWeight } from '../services/weightService'
+import { addWeight, fetchWeightHistory, removeWeight, syncProfileWeight } from '../services/weightService'
 import type { WeightEntry } from '../types'
-import { localTodayISO, formatFullDate } from '../utils/format'
+import { localTodayISO, formatFullDate, formatDate } from '../utils/format'
+import { computeWeightPace, weeklyAverageWeight } from '../utils/insights'
 import { useUnit, kgToDisplay, displayToKg } from '../hooks/useUnit'
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
 
 export default function Weight() {
-  const { profile } = useAuth()
+  const { profile, refreshProfile } = useAuth()
   const { unit }    = useUnit()
   const uid = profile?.uid ?? ''
 
@@ -22,6 +23,12 @@ export default function Weight() {
     setLoading(true)
     const w = await fetchWeightHistory(uid)
     setWeights(w); setLoading(false)
+    // Keep profile.weight (= the newest entry) in sync so BMI/TDEE/calorie
+    // targets everywhere reflect the latest logged weight, not onboarding day
+    const before = profile?.weight
+    await syncProfileWeight(uid, w)
+    const after = w.length > 0 ? w[0].weight : before
+    if (after !== before) await refreshProfile()
   }
 
   useEffect(() => { load() }, [uid])
@@ -30,9 +37,11 @@ export default function Weight() {
   const start   = weights[weights.length - 1]
   const change  = current && start ? current.weight - start.weight : 0
   const target  = profile?.targetWeight ?? current?.weight ?? 70
+  const avg7    = weeklyAverageWeight(weights)
+  const pace    = profile ? computeWeightPace(weights, profile.targetWeight ?? target) : null
 
   const chartData = [...weights].reverse().slice(-30).map(w => ({
-    date: new Date(w.date).toLocaleDateString('en', { month: 'short', day: 'numeric' }),
+    date: formatDate(w.date), // local-midnight parse — avoids UTC off-by-one
     kg: unit === 'lbs' ? Math.round(kgToDisplay(w.weight, 'lbs') * 10) / 10 : w.weight,
   }))
 
@@ -85,6 +94,37 @@ export default function Weight() {
           </div>
         ))}
       </div>
+
+      {/* Pace & projection strip — only when there's enough real data */}
+      {pace && pace.spanDays >= 7 && (
+        <div className="card card-shadow p-4 sm:p-5 rounded-2xl mb-5 flex flex-wrap items-center gap-x-6 gap-y-3 animate-fade-up opacity-0"
+          style={{ animationFillMode: 'forwards', animationDelay: '160ms' }}>
+          <div>
+            <p className="text-[10px] font-bold text-text-muted uppercase tracking-wider">7-day average</p>
+            <p className="text-xl font-black text-text-primary">
+              {avg7 != null ? kgToDisplay(Math.round(avg7 * 10) / 10, unit).toFixed(1) : '—'}
+              <span className="text-xs font-normal text-text-muted ml-1">{unit}</span>
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Recent pace</p>
+            <p className={`text-xl font-black ${pace.movingToGoal ? 'text-green-400' : 'text-amber-400'}`}>
+              {pace.weeklyRateKg >= 0 ? '+' : ''}{kgToDisplay(pace.weeklyRateKg, unit).toFixed(2)}
+              <span className="text-xs font-normal text-text-muted ml-1">{unit}/wk</span>
+            </p>
+          </div>
+          <div className="sm:border-l sm:border-white/10 sm:pl-6">
+            <p className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Goal projection</p>
+            <p className="text-sm font-black text-text-primary mt-0.5">
+              {pace.etaDate
+                ? `On track for ${formatFullDate(pace.etaDate)}`
+                : !pace.movingToGoal && Math.abs(pace.weeklyRateKg) > 0.1
+                  ? 'Trending away from goal'
+                  : `${Math.abs(kgToDisplay(Math.abs(pace.remainingKg), unit)).toFixed(1)} ${unit} to go`}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Chart */}
       {chartData.length > 0 && (
@@ -242,7 +282,7 @@ function AddWeightModal({ uid, unit, lastWeightKg, onClose, onAdded }: {
               <div>
                 <label className="block text-sm font-bold text-text-primary mb-2">Weight ({unit})</label>
                 <input type="number" value={weight} onChange={e => setWeight(e.target.value)}
-                  className="input" step="0.1" min={20} max={300}
+                  className="input" step="0.1" min={unit === 'lbs' ? 40 : 20} max={unit === 'lbs' ? 660 : 300}
                   placeholder={unit === 'lbs' ? '150' : '70'} required />
               </div>
               <div>

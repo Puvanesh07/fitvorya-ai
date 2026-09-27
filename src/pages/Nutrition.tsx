@@ -7,15 +7,25 @@ import {
   logMeal, fetchMealsForDate, removeMeal,
   logWater, fetchWaterForDate, removeWater,
 } from '../services/nutritionService'
+import { fetchWorkoutHistory } from '../services/workoutService'
+import type { WorkoutSession } from '../types/workout'
 import type { FoodItem, MealEntry, MealType, WaterEntry } from '../types/nutrition'
 import type { UnifiedFood } from '../types/food'
 import { MEAL_LABELS, MEAL_ICONS, scaleMacros, sumNutrition, sumWater } from '../types/nutrition'
 import { localTodayISO, formatFullDate } from '../utils/format'
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
+import { calculateWaterGoal, estimateSessionCaloriesFor, sessionMinutes } from '../utils/insights'
+import { fetchOutdoorConditions } from '../services/weatherService'
+import { BUILT_IN_TEMPLATES } from '../data/templates'
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts'
 import FoodSearch from '../components/food/FoodSearch'
 
 const WATER_PRESETS = [250, 500, 750, 1000]
 const MACRO_COLORS = { protein: '#8b5cf6', carbs: '#ec4899', fat: '#f59e0b' }
+
+// templateId → category for MET-based burn estimates
+const TEMPLATE_CATEGORIES: Record<string, string> = Object.fromEntries(
+  BUILT_IN_TEMPLATES.map(t => [t.id, t.category]),
+)
 
 const MEAL_CARD_COLORS: Record<MealType, { card: string; accent: string; icon_bg: string }> = {
   breakfast: { card: 'card-yellow', accent: '#f59e0b', icon_bg: 'rgba(245,158,11,0.15)' },
@@ -32,25 +42,51 @@ export default function Nutrition() {
   const [date, setDate]           = useState(localTodayISO())
   const [meals, setMeals]         = useState<MealEntry[]>([])
   const [water, setWater]         = useState<WaterEntry[]>([])
+  const [dayWorkouts, setDayWorkouts] = useState<WorkoutSession[]>([])
   const [loading, setLoading]     = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [showAddFood, setShowAddFood] = useState(false)
   const [selectedMeal, setSelectedMeal] = useState<MealType>('breakfast')
+  const [heatBonusMl, setHeatBonusMl] = useState(0)
 
   async function load() {
     if (!uid) return
     setLoading(true)
-    const [m, w] = await Promise.all([fetchMealsForDate(uid, date), fetchWaterForDate(uid, date)])
-    setMeals(m); setWater(w); setLoading(false)
+    setLoadError('')
+    try {
+      const [m, w, wo] = await Promise.all([
+        fetchMealsForDate(uid, date), fetchWaterForDate(uid, date), fetchWorkoutHistory(uid),
+      ])
+      setMeals(m); setWater(w)
+      setDayWorkouts(wo.filter(s => s.date === date))
+    } catch { setLoadError('Failed to load your food log. Check your connection.') }
+    finally { setLoading(false) }
   }
 
   useEffect(() => { load() }, [uid, date])
 
+  // Heat adjustment from live weather (cached session-wide by weatherService —
+  // no extra network cost when the Dashboard already fetched it).
+  useEffect(() => {
+    let alive = true
+    fetchOutdoorConditions().then(c => { if (alive && c) setHeatBonusMl(c.hydrationBonusMl) })
+    return () => { alive = false }
+  }, [])
+
   const nutrition  = sumNutrition(meals)
   const waterTotal = sumWater(water)
-  const waterGoal  = 2500
+  // Personalized: 35 ml/kg + activity bonus + live heat adjustment — never a flat 2.5 L
+  const waterGoal  = (profile ? calculateWaterGoal(profile.weight, profile.activityLevel) : 2500) + heatBonusMl
   const targetCals = metrics?.targetCalories ?? 2000
   const calPct     = Math.min(100, Math.round((nutrition.calories / targetCals) * 100))
   const waterPct   = Math.min(100, Math.round((waterTotal / waterGoal) * 100))
+
+  // Energy burned in today's logged workouts (MET estimate)
+  const burnedKcal = profile
+    ? dayWorkouts.reduce((s, w) => s + estimateSessionCaloriesFor(w, profile.weight, TEMPLATE_CATEGORIES), 0)
+    : 0
+  const activeMin  = dayWorkouts.reduce((s, w) => s + sessionMinutes(w), 0)
+  const netRemaining = Math.round(targetCals - nutrition.calories + burnedKcal)
 
   const macroData = [
     { name: 'Protein', value: Math.round(nutrition.protein), color: MACRO_COLORS.protein },
@@ -93,6 +129,13 @@ export default function Nutrition() {
         </div>
       </div>
 
+      {loadError && (
+        <div className="mb-4 px-4 py-3 rounded-xl text-xs text-amber-300 animate-fade-in"
+          style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)' }}>
+          ⚠ {loadError}
+        </div>
+      )}
+
       {/* ── Summary row ── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6">
 
@@ -101,10 +144,18 @@ export default function Nutrition() {
           <div className="flex items-center justify-between mb-2 sm:mb-3">
             <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center text-lg sm:text-xl"
               style={{ background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.25)' }}>🔥</div>
-            <span className="text-xs font-bold px-2 py-1 rounded-full"
-              style={{ background: 'rgba(245,158,11,0.12)', color: '#f59e0b' }}>{calPct}%</span>
+            {burnedKcal > 0 ? (
+              <span className="text-xs font-bold px-2 py-1 rounded-full"
+                style={{ background: 'rgba(236,72,153,0.12)', color: '#f472b6' }}
+                title={`${activeMin} min trained — MET estimate`}>
+                −{burnedKcal} burned
+              </span>
+            ) : (
+              <span className="text-xs font-bold px-2 py-1 rounded-full"
+                style={{ background: 'rgba(245,158,11,0.12)', color: '#f59e0b' }}>{calPct}%</span>
+            )}
           </div>
-          <p className="text-xs text-text-muted font-semibold uppercase tracking-wider mb-1">Calories</p>
+          <p className="text-xs text-text-muted font-semibold uppercase tracking-wider mb-1">Calories eaten</p>
           <p className="text-2xl sm:text-3xl font-black text-text-primary tracking-tight">
             {Math.round(nutrition.calories).toLocaleString()}
             <span className="text-xs sm:text-sm font-normal text-text-muted ml-1">/ {Math.round(targetCals)}</span>
@@ -113,6 +164,11 @@ export default function Nutrition() {
             <div className="progress-bar-fill progress-bar-amber" style={{ width: `${calPct}%`,
               background: 'linear-gradient(90deg,#f59e0b,#f97316)' }} />
           </div>
+          <p className="text-[10px] text-text-muted mt-2">
+            {netRemaining >= 0
+              ? <>{netRemaining} kcal left today{activeMin > 0 && ` · ${activeMin} min trained`}</>
+              : <span className="text-amber-400 font-bold">{-netRemaining} kcal over your net budget</span>}
+          </p>
         </div>
 
         {/* Macros donut */}
@@ -140,16 +196,26 @@ export default function Nutrition() {
               </div>
               <div className="flex flex-col gap-2 flex-1">
                 {[
-                  { label: 'Protein', value: nutrition.protein, color: MACRO_COLORS.protein },
-                  { label: 'Carbs',   value: nutrition.carbs,   color: MACRO_COLORS.carbs   },
-                  { label: 'Fat',     value: nutrition.fat,     color: MACRO_COLORS.fat      },
+                  { label: 'Protein', value: nutrition.protein, target: metrics?.macros.proteinG ?? 0, color: MACRO_COLORS.protein },
+                  { label: 'Carbs',   value: nutrition.carbs,   target: metrics?.macros.carbsG ?? 0,   color: MACRO_COLORS.carbs   },
+                  { label: 'Fat',     value: nutrition.fat,     target: metrics?.macros.fatG ?? 0,     color: MACRO_COLORS.fat      },
                 ].map(m => (
-                  <div key={m.label} className="flex items-center justify-between">
-                    <span className="flex items-center gap-1.5 text-xs text-text-muted font-semibold">
-                      <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: m.color }} />
-                      {m.label}
-                    </span>
-                    <span className="text-sm font-black text-text-primary">{Math.round(m.value)}g</span>
+                  <div key={m.label}>
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-xs text-text-muted font-semibold">
+                        <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: m.color }} />
+                        {m.label}
+                      </span>
+                      <span className="text-xs font-black text-text-primary">
+                        {Math.round(m.value)}<span className="text-text-muted font-normal">/{m.target}g</span>
+                      </span>
+                    </div>
+                    <div className="progress-bar mt-1" style={{ height: '3px' }}>
+                      <div className="progress-bar-fill" style={{
+                        width: `${m.target > 0 ? Math.min(100, (m.value / m.target) * 100) : 0}%`,
+                        background: m.color,
+                      }} />
+                    </div>
                   </div>
                 ))}
               </div>
@@ -174,8 +240,9 @@ export default function Nutrition() {
           <p className="text-xs text-text-muted font-semibold uppercase tracking-wider mb-1">Hydration</p>
           <p className="text-2xl sm:text-3xl font-black text-text-primary tracking-tight">
             {(waterTotal / 1000).toFixed(1)}
-            <span className="text-xs sm:text-sm font-normal text-text-muted ml-1">/ {waterGoal / 1000}L</span>
+            <span className="text-xs sm:text-sm font-normal text-text-muted ml-1">/ {(waterGoal / 1000).toFixed(1)}L</span>
           </p>
+          <p className="text-[10px] text-text-muted mt-1">{heatBonusMl > 0 ? `Incl. +${heatBonusMl} ml for today's heat` : 'Goal tuned to your weight & activity level'}</p>
           <div className="grid grid-cols-4 gap-1.5 mt-3">
             {WATER_PRESETS.map(ml => (
               <button key={ml} onClick={() => handleAddWater(ml)}

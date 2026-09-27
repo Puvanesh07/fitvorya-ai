@@ -17,6 +17,9 @@ dist-ssr
 .env.local
 .env.*.local
 
+# Regenerated wger.de catalog cache (node scripts/buildExerciseCatalog.mjs)
+scripts/.wger-cache.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

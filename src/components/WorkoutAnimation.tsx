@@ -1,9 +1,11 @@
 /**
- * WorkoutAnimation — CSS-animated SVG figure + full exercise instructions.
+ * WorkoutAnimation — real exercise demo (wger.de video/animation) with a
+ * CSS-animated SVG figure fallback + full exercise instructions.
  * Covers every exercise in templates.ts with a unique motion and step-by-step guide.
  */
 
 import { useState } from 'react'
+import ExerciseVisual from './ExerciseVisual'
 
 interface Props {
   gender?: 'male' | 'female' | 'other'
@@ -403,9 +405,19 @@ export default function WorkoutAnimation({
     <div className="flex flex-col items-center w-full">
       {/* Animation + info header */}
       <div className="flex items-center gap-4 w-full">
-        {/* SVG figure */}
-        <div className="flex-shrink-0 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-2xl p-3 flex items-center justify-center" style={{ minWidth: 100 }}>
-          <Figure motion={data.motion} gender={g} size={90} />
+        {/* Real demo video / animation when available, else animated SVG figure */}
+        <div className="flex-shrink-0">
+          <ExerciseVisual
+            key={exerciseId || exerciseName}
+            exerciseId={exerciseId}
+            exerciseName={exerciseName}
+            size={138}
+            fallback={
+              <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-2xl p-3 flex items-center justify-center" style={{ minWidth: 100 }}>
+                <Figure motion={data.motion} gender={g} size={90} />
+              </div>
+            }
+          />
         </div>
 
         {/* Info */}

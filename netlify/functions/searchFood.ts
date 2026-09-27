@@ -166,11 +166,13 @@ const LOCAL_MAP = new Map(LOCAL_FOODS.map(f => [f.fdcId, f]))
 // ── USDA nutrient ID → field mapping ─────────────────────────────────────────
 function parseUSDA(f: USDAFood): FoodResult {
   const get = (id: number) => f.foodNutrients.find(n => n.nutrientId === id)?.value ?? 0
+  // Nutrient 1008 = Energy (kcal); some records only carry 1062 (kJ) — convert.
+  const kcal = get(1008) || Math.round(get(1062) / 4.184)
   return {
     fdcId:       String(f.fdcId),
     name:        toTitleCase(f.description),
     brand:       f.brandOwner ?? f.brandName,
-    calories:    Math.round(get(1008)),
+    calories:    Math.round(kcal),
     protein:     round1(get(1003)),
     carbs:       round1(get(1005)),
     fat:         round1(get(1004)),

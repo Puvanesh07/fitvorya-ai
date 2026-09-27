@@ -1,24 +1,33 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import PageLoader from '../components/PageLoader'
 import AICoachCard from '../components/coach/AICoachCard'
 import { computeMetrics } from '../utils/calculations'
 import type { WeightEntry, MealEntry, WaterEntry } from '../types'
-import type { WorkoutSession } from '../types/workout'
+import type { WorkoutSession, PersonalRecord } from '../types/workout'
 import { fetchWeightHistory } from '../services/weightService'
-import { fetchMealsForDate, fetchWaterForDate } from '../services/nutritionService'
-import { fetchWorkoutHistory } from '../services/workoutService'
+import { fetchMealsForDate, fetchMealsForRange, fetchWaterForDate } from '../services/nutritionService'
+import { fetchWorkoutHistory, fetchPersonalRecords } from '../services/workoutService'
 import { fetchProgressSummary } from '../services/progressService'
 import type { ProgressSummary } from '../services/progressService'
-import { formatFullDate, localTodayISO, dateToISO } from '../utils/format'
+import { formatFullDate, formatDate, localTodayISO, dateToISO } from '../utils/format'
 import type { FitnessMetrics } from '../utils/calculations'
+import { sumNutrition, sumWater } from '../types/nutrition'
+import {
+  calculateWaterGoal, estimateSessionCaloriesFor, sessionMinutes,
+  computeWeightPace, generateInsights, lastNDates,
+  sessionsThisWeek, sessionsLastWeek, pickRecommendedTemplates,
+} from '../utils/insights'
+import { BUILT_IN_TEMPLATES } from '../data/templates'
+import { fetchOutdoorConditions, type OutdoorConditions } from '../services/weatherService'
+import { kgToDisplay, useUnit } from '../hooks/useUnit'
 import {
   ResponsiveContainer, XAxis, YAxis, Tooltip,
-  LineChart, Line, CartesianGrid, Area, AreaChart,
+  LineChart, Line, CartesianGrid, BarChart, Bar as RechartsBar, Cell,
 } from 'recharts'
 
-// ── Tiny icons ────────────────────────────────────────────────────────────────
+// ── Icons ─────────────────────────────────────────────────────────────────────
 function TrendUpIcon() {
   return (
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -33,13 +42,6 @@ function TrendDownIcon() {
     </svg>
   )
 }
-function ChevronDownIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="6 9 12 15 18 9"/>
-    </svg>
-  )
-}
 function ArrowRightIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -48,7 +50,7 @@ function ArrowRightIcon() {
   )
 }
 
-// ── Custom tooltip ────────────────────────────────────────────────────────────
+// ── Chart tooltip ─────────────────────────────────────────────────────────────
 function ChartTooltip({ active, payload, label, unit = '' }: {
   active?: boolean; payload?: { value: number; color: string }[]; label?: string; unit?: string
 }) {
@@ -56,21 +58,22 @@ function ChartTooltip({ active, payload, label, unit = '' }: {
   return (
     <div className="card-shadow rounded-xl px-3 py-2 text-xs" style={{ background: 'rgb(30 28 52)', border: '1px solid rgba(108,65,210,0.3)' }}>
       <p className="text-text-muted mb-1">{label}</p>
-      <p className="font-bold text-text-primary">{payload[0].value}{unit}</p>
+      <p className="font-bold text-text-primary">{Math.round(payload[0].value)}{unit}</p>
     </div>
   )
 }
 
-// ── Circular progress ─────────────────────────────────────────────────────────
-function CircularProgress({ pct, size = 120, stroke = 10, color = '#6c41d2', trackColor = 'rgba(255,255,255,0.06)' }: {
-  pct: number; size?: number; stroke?: number; color?: string; trackColor?: string
+// ── Circular progress ring ────────────────────────────────────────────────────
+function Ring({ pct, size = 92, stroke = 9, color }: {
+  pct: number; size?: number; stroke?: number; color: string
 }) {
+  const clamped = Math.min(100, Math.max(0, pct))
   const r = (size - stroke) / 2
   const circ = 2 * Math.PI * r
-  const dash = (pct / 100) * circ
+  const dash = (clamped / 100) * circ
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)' }}>
-      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={trackColor} strokeWidth={stroke} />
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={stroke} />
       <circle
         cx={size/2} cy={size/2} r={r} fill="none"
         stroke={color} strokeWidth={stroke}
@@ -82,571 +85,547 @@ function CircularProgress({ pct, size = 120, stroke = 10, color = '#6c41d2', tra
   )
 }
 
+// ── Today ring card ───────────────────────────────────────────────────────────
+function MetricRing({ label, icon, pct, value, sub, color, to }: {
+  label: string; icon: string; pct: number; value: string; sub: string; color: string; to: string
+}) {
+  return (
+    <Link to={to} className="card card-shadow p-3 sm:p-5 rounded-2xl flex flex-col items-center gap-1.5 sm:gap-2.5 hover:-translate-y-0.5 transition-all group">
+      <div className="flex items-center justify-between w-full">
+        <span className="text-[10px] sm:text-xs font-bold text-text-muted uppercase tracking-wider">{label}</span>
+        <span className="text-sm sm:text-base">{icon}</span>
+      </div>
+      <div className="relative">
+        <Ring pct={pct} color={color} />
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-sm sm:text-lg font-black text-text-primary tracking-tight">{Math.min(100, Math.round(pct))}%</span>
+        </div>
+      </div>
+      <p className="text-sm sm:text-base font-black text-text-primary leading-none">{value}</p>
+      <p className="text-[10px] text-text-muted text-center leading-snug">{sub}</p>
+    </Link>
+  )
+}
+
+const TONE_STYLES = {
+  good: { bg: 'rgba(16,185,129,0.09)', border: 'rgba(16,185,129,0.25)', accent: '#34d399' },
+  warn: { bg: 'rgba(245,158,11,0.09)', border: 'rgba(245,158,11,0.25)', accent: '#fbbf24' },
+  info: { bg: 'rgba(96,165,250,0.09)', border: 'rgba(96,165,250,0.25)', accent: '#93c5fd' },
+} as const
+
+const DAY_SHORT = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+
+// templateId → category map for MET-based calorie estimation
+const TEMPLATE_CATEGORIES: Record<string, string> = Object.fromEntries(
+  BUILT_IN_TEMPLATES.map(t => [t.id, t.category]),
+)
+
 export default function Dashboard() {
   const { profile } = useAuth()
+  const { unit } = useUnit()
   const [weights, setWeights]   = useState<WeightEntry[]>([])
   const [meals, setMeals]       = useState<MealEntry[]>([])
+  const [weekMeals, setWeekMeals] = useState<MealEntry[]>([])
   const [water, setWater]       = useState<WaterEntry[]>([])
-  const [recentWorkouts, setRecentWorkouts] = useState<WorkoutSession[]>([])
+  const [workouts, setWorkouts] = useState<WorkoutSession[]>([])
+  const [prs, setPrs]           = useState<PersonalRecord[]>([])
   const [progressSummary, setProgressSummary] = useState<ProgressSummary | null>(null)
-  const [metrics, setMetrics]   = useState<FitnessMetrics | null>(null)
   const [loading, setLoading]   = useState(true)
+  const [error, setError]       = useState('')
+  const [outdoor, setOutdoor]   = useState<OutdoorConditions | null>(null)
 
-  useEffect(() => { if (profile) setMetrics(computeMetrics(profile)) }, [profile])
+  const metrics = useMemo<FitnessMetrics | null>(() => (profile ? computeMetrics(profile) : null), [profile])
+
+  // Live outdoor conditions (Open-Meteo — no key, cached per session).
+  // Resolves to null on refusal/failure and the card simply doesn't render.
+  useEffect(() => {
+    let alive = true
+    fetchOutdoorConditions().then(c => { if (alive && c) setOutdoor(c) })
+    return () => { alive = false }
+  }, [])
 
   useEffect(() => {
     if (!profile) return
     const today = localTodayISO()
+    const weekStart = dateToISO(new Date(Date.now() - 6 * 86400000))
     Promise.all([
       fetchWeightHistory(profile.uid),
       fetchMealsForDate(profile.uid, today),
+      fetchMealsForRange(profile.uid, weekStart, today),
       fetchWaterForDate(profile.uid, today),
       fetchWorkoutHistory(profile.uid),
+      fetchPersonalRecords(profile.uid),
       fetchProgressSummary(profile.uid),
-    ]).then(([w, m, wat, wo, prog]) => {
+    ]).then(([w, m, wm, wat, wo, pr, prog]) => {
       setWeights(w)
       setMeals(m)
+      setWeekMeals(wm)
       setWater(wat)
-      setRecentWorkouts(wo.slice(0, 5))
+      setWorkouts(wo)
+      setPrs(pr)
       setProgressSummary(prog)
-    }).finally(() => setLoading(false))
+    }).catch(() => setError('Some data failed to load. Check your connection and refresh.')).finally(() => setLoading(false))
   }, [profile])
 
-  if (loading || !metrics || !profile) return <PageLoader variant="dashboard" />
+  const derived = useMemo(() => {
+    if (!profile || !metrics) return null
+    const today = localTodayISO()
 
-  const todayNutrition = meals.reduce((acc, m) => {
-    const f = m.grams / 100
+    // ── Today's nutrition (shared summation util — same math as Nutrition page)
+    const nutrition = sumNutrition(meals)
+    const waterTotal = sumWater(water)
+    const waterGoal = calculateWaterGoal(profile.weight, profile.activityLevel) + (outdoor?.hydrationBonusMl ?? 0)
+
+    // ── Today's training: real sessions, MET-estimated burn
+    const todaySessions = workouts.filter(w => w.date === today)
+    const todayActiveMin = todaySessions.reduce((s, w) => s + sessionMinutes(w), 0)
+    const todayBurnedKcal = todaySessions.reduce((s, w) => s + estimateSessionCaloriesFor(w, profile.weight, TEMPLATE_CATEGORIES), 0)
+
+    // ── 7-day averages from real logs
+    const last7 = lastNDates(7)
+    const perDayCalories = last7.map(d =>
+      sumNutrition(weekMeals.filter(m => m.date === d)).calories)
+    const daysWithFood = perDayCalories.filter(c => c > 0).length
+    const avgWeekCalories = daysWithFood > 0
+      ? perDayCalories.reduce((a, b) => a + b, 0) / daysWithFood
+      : 0
+
+    // ── Weekly chart: minutes trained each of the last 7 days
+    const activityData = last7.map(d => ({
+      day: DAY_SHORT[new Date(d + 'T00:00:00').getDay()],
+      minutes: workouts.filter(w => w.date === d).reduce((s, w) => s + sessionMinutes(w), 0),
+      isToday: d === today,
+    }))
+
+    const weekCount = sessionsThisWeek(workouts)
+    const lastWeekCount = sessionsLastWeek(workouts)
+
+    // ── Weight trend + pace
+    const weightTrend = weights.slice(0, 10).reverse().map(w => ({
+      date: formatDate(w.date),
+      [unit === 'lbs' ? 'lb' : 'kg']: unit === 'lbs'
+        ? Math.round(kgToDisplay(w.weight, 'lbs') * 10) / 10
+        : w.weight,
+    }))
+    const pace = computeWeightPace(weights, profile.targetWeight)
+
+    // ── Insights (rule-based, all real data)
+    const insights = generateInsights({
+      goal: profile.goal,
+      targetCalories: metrics.targetCalories,
+      proteinTargetG: metrics.macros.proteinG,
+      caloriesLogged: nutrition.calories,
+      proteinLoggedG: nutrition.protein,
+      waterMl: waterTotal,
+      waterGoalMl: waterGoal,
+      workoutsThisWeek: weekCount,
+      workoutsLastWeek: lastWeekCount,
+      activeDaysThisWeek: new Set(workouts.filter(w => w.date >= last7[0]).map(w => w.date)).size,
+      streak: progressSummary?.streak.currentStreak ?? 0,
+      pace,
+    })
+
+    // ── Recommendations from real templates (goal + muscle-group rotation)
+    const recommended = pickRecommendedTemplates(BUILT_IN_TEMPLATES, workouts, profile.goal)
+
+    const calPct = (nutrition.calories / metrics.targetCalories) * 100
+    const proteinPct = (nutrition.protein / metrics.macros.proteinG) * 100
+    const waterPct = (waterTotal / waterGoal) * 100
+    const activityPct = (todayActiveMin / 30) * 100  // WHO: 30 min/day moderate activity
+
     return {
-      calories: acc.calories + m.foodItem.calories * f,
-      protein:  acc.protein  + m.foodItem.protein  * f,
-      carbs:    acc.carbs    + m.foodItem.carbs    * f,
-      fat:      acc.fat      + m.foodItem.fat      * f,
+      nutrition, waterTotal, waterGoal, todayActiveMin, todayBurnedKcal,
+      avgWeekCalories, activityData, weightTrend, pace, insights, recommended,
+      calPct, proteinPct, waterPct, activityPct, weekCount,
+      recentSessions: workouts.slice(0, 4),
+      earnedBadges: progressSummary?.badges.filter(b => b.earned) ?? [],
+      topPrs: [...prs].sort((a, b) => b.achievedAt.localeCompare(a.achievedAt)).slice(0, 3),
     }
-  }, { calories: 0, protein: 0, carbs: 0, fat: 0 })
+  }, [profile, metrics, meals, weekMeals, water, workouts, prs, progressSummary, unit, outdoor])
 
-  const waterTotal = water.reduce((sum, w) => sum + w.amount, 0)
-  const waterGoal  = 2500
-  const waterPct   = Math.min(100, Math.round((waterTotal / waterGoal) * 100))
-  const calPct     = Math.min(100, Math.round((todayNutrition.calories / metrics.targetCalories) * 100))
+  if (loading || !metrics || !profile || !derived) return <PageLoader variant="dashboard" />
 
-  const todayDate  = new Date()
-  const activityData = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(todayDate)
-    d.setDate(d.getDate() - (6 - i))
-    const dateStr  = dateToISO(d)
-    const dayLabel = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()]
-    const wos = recentWorkouts.filter(w => w.date === dateStr)
-    const minutes = wos.reduce((sum, w) => {
-      const start = w.startedAt ? new Date(w.startedAt).getTime() : 0
-      const end   = w.finishedAt ? w.finishedAt : 0
-      return sum + (end > start ? Math.round((end - start) / 60000) : 0)
-    }, 0)
-    return { day: dayLabel, minutes }
-  })
+  const {
+    nutrition, waterTotal, waterGoal, todayActiveMin, todayBurnedKcal,
+    avgWeekCalories, activityData, weightTrend, pace, insights, recommended,
+    calPct, proteinPct, waterPct, activityPct, weekCount,
+    recentSessions, earnedBadges, topPrs,
+  } = derived
 
-  const weightTrend = weights.slice(0, 8).reverse().map(w => ({
-    date: new Date(w.date).toLocaleDateString('en', { month: 'short', day: 'numeric' }),
-    kg: w.weight,
-  }))
-
-  const totalActiveMin = activityData.reduce((s, d) => s + d.minutes, 0)
-  const greeting = profile.displayName?.split(' ')[0] ?? 'User'
-  const dateStr  = formatFullDate(localTodayISO())
-
-  // Macros breakdown
-  const totalMacros = todayNutrition.protein + todayNutrition.carbs + todayNutrition.fat || 1
-  const proteinPct  = Math.round((todayNutrition.protein / totalMacros) * 100)
-  const carbsPct    = Math.round((todayNutrition.carbs   / totalMacros) * 100)
-
-  // Month activity (simulated last 12 weeks of data bucketed by month)
-  const monthLabels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-  const currentMonth = todayDate.getMonth()
-  const monthActivity = monthLabels.map((m, idx) => ({
-    month: m,
-    value: idx === currentMonth
-      ? Math.max(totalActiveMin, 5)
-      : Math.floor(Math.random() * 30 + 5),
-    isCurrent: idx === currentMonth,
-  }))
-
-  // Recommend activity items (real workout templates)
-  const recommendItems = [
-    { icon: '💪', label: 'Full Body Strength', sub: 'Push · Pull · Core', color: 'card-purple', mins: 45 },
-    { icon: '🔥', label: 'HIIT Cardio',        sub: 'High Intensity',     color: 'card-pink',   mins: 30 },
-    { icon: '🦵', label: 'Leg Day',            sub: 'Quads · Glutes',     color: 'card-green',  mins: 50 },
-    { icon: '⚡', label: 'StrongLifts 5×5',    sub: 'Compound Strength',  color: 'card-yellow', mins: 55 },
-  ]
+  const greeting = profile.displayName?.split(' ')[0] ?? 'Athlete'
+  const hour = new Date().getHours()
+  const timeGreet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
+  const streak = progressSummary?.streak.currentStreak ?? 0
+  const weightKey = unit === 'lbs' ? 'lb' : 'kg'
+  const remaining = Math.round(metrics.targetCalories - nutrition.calories + todayBurnedKcal)
 
   return (
     <div className="animate-fade-in">
 
-      {/* Page header */}
+      {/* ── Header ── */}
       <div className="flex items-center justify-between mb-4 sm:mb-7 animate-fade-up opacity-0" style={{ animationFillMode: 'forwards' }}>
         <div>
-          <p className="text-[10px] sm:text-xs font-semibold text-text-muted uppercase tracking-widest mb-0.5 sm:mb-1">{dateStr}</p>
+          <p className="text-[10px] sm:text-xs font-semibold text-text-muted uppercase tracking-widest mb-0.5 sm:mb-1">
+            {formatFullDate(localTodayISO())}
+          </p>
           <h1 className="text-xl sm:text-2xl font-black text-text-primary tracking-tight">
-            Hello, <span className="gradient-text">{greeting}</span> 👋
+            {timeGreet}, <span className="gradient-text">{greeting}</span> 👋
           </h1>
         </div>
         <div className="flex items-center gap-2">
-          <Link to="/workout"
-            className="btn-purple btn-sm hidden sm:inline-flex">
-            + Start Workout
-          </Link>
+          {streak > 0 && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl card-orange">
+              <span className="text-sm">🔥</span>
+              <span className="text-sm font-black text-text-primary">{streak}</span>
+              <span className="text-[10px] text-text-muted font-semibold hidden sm:inline">day streak</span>
+            </div>
+          )}
+          <Link to="/workout" className="btn-purple btn-sm hidden sm:inline-flex">+ Start Workout</Link>
         </div>
       </div>
+
+      {error && (
+        <div className="mb-4 px-4 py-3 rounded-xl text-xs text-amber-300 animate-fade-in"
+          style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)' }}>
+          ⚠ {error}
+        </div>
+      )}
 
       {/* ── AI Coach Card ── */}
       <div className="mb-3 sm:mb-5 animate-fade-up opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '25ms' }}>
         <AICoachCard uid={profile.uid} />
       </div>
 
-      {/* ── Row 1 — Overview + Today's Activity + Output + Calories ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 sm:gap-5 mb-3 sm:mb-5">
-
-        {/* Overview card */}
-        <div className="sm:col-span-1 lg:col-span-3 card card-shadow p-3 sm:p-5 rounded-2xl animate-fade-up opacity-0"
-          style={{ animationFillMode: 'forwards', animationDelay: '50ms' }}>
-          <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <h2 className="text-xs sm:text-sm font-black text-text-primary">Overview</h2>
-            <button className="flex items-center gap-1 text-xs text-text-muted hover:text-text-secondary transition-colors">
-              Monthly <ChevronDownIcon />
-            </button>
-          </div>
-
-          {/* Circular progress + legend */}
-          <div className="flex items-center gap-3 sm:gap-4">
-            <div className="relative flex-shrink-0">
-              <CircularProgress pct={calPct} size={88} stroke={8} color="#8c41d4" />
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-sm font-black text-text-primary">{calPct > 0 ? `+${Math.round(calPct - 77)}%` : '0%'}</span>
-                <span className="text-[8px] text-text-muted font-medium">Total</span>
-              </div>
-            </div>
-            <div className="flex flex-col gap-2 flex-1">
-              {[
-                { dot: '#8b5cf6', label: 'Calories burn', val: `${Math.round(todayNutrition.calories * 0.8 / metrics.targetCalories * 100)}%`, change: '+1.25%' },
-                { dot: '#f59e0b', label: 'Protein',       val: `${todayNutrition.protein.toFixed(1)}g`,                                        change: '+3.43%' },
-                { dot: '#10b981', label: 'Carbs',         val: `${carbsPct}%`,                                                                  change: '+2.12%' },
-              ].map(row => (
-                <div key={row.label} className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: row.dot }} />
-                    <span className="text-[10px] text-text-muted">{row.label}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-bold text-text-primary">{row.val}</span>
-                    <span className="text-[9px] text-green-400 flex items-center gap-0.5"><TrendUpIcon />{row.change}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+      {/* ── Today's rings ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-3 sm:mb-5">
+        <div className="animate-fade-up opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '50ms' }}>
+          <MetricRing
+            label="Calories" icon="🔥" pct={calPct} color="#8c41d4" to="/nutrition"
+            value={`${Math.round(nutrition.calories)} / ${Math.round(metrics.targetCalories)}`}
+            sub={remaining >= 0
+              ? `${remaining} kcal left${todayBurnedKcal > 0 ? ` · +${todayBurnedKcal} burned` : ''}`
+              : `${-remaining} kcal over target`}
+          />
         </div>
-
-        {/* Today's Activity */}
-        <div className="sm:col-span-1 lg:col-span-3 card card-shadow p-3 sm:p-5 rounded-2xl animate-fade-up opacity-0"
-          style={{ animationFillMode: 'forwards', animationDelay: '100ms' }}>
-          <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <h2 className="text-xs sm:text-sm font-black text-text-primary">Today's activity</h2>
-            <button className="flex items-center gap-1 text-xs text-text-muted hover:text-text-secondary transition-colors">
-              Recent <ChevronDownIcon />
-            </button>
-          </div>
-
-          {/* Highlight stat */}
-          <div className="gradient-brand rounded-xl p-3 sm:p-4 mb-3 text-center"
-            style={{ boxShadow: '0 6px 20px rgba(108,65,210,0.4)' }}>
-            <p className="text-xl sm:text-2xl font-black text-white">{progressSummary?.workoutCount ?? 0}</p>
-            <p className="text-[10px] text-white/70 font-medium">Sessions / Week</p>
-          </div>
-
-          {/* Activity bullets */}
-          <div className="flex flex-col gap-2">
-            {[
-              { dot: '#8b5cf6', label: 'Squats',        sub: `${Math.max(activityData[activityData.length-1].minutes, 0)} sets` },
-              { dot: '#f59e0b', label: 'Low lunges',     sub: '15 sets' },
-              { dot: '#10b981', label: 'Battling rope',  sub: '20 sets' },
-            ].map(item => (
-              <div key={item.label} className="flex items-center gap-2.5">
-                <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: item.dot, boxShadow: `0 0 6px ${item.dot}` }} />
-                <span className="text-xs font-semibold text-text-primary flex-1">{item.label}</span>
-                <span className="text-[10px] text-text-muted">{item.sub}</span>
-              </div>
-            ))}
-          </div>
+        <div className="animate-fade-up opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '100ms' }}>
+          <MetricRing
+            label="Protein" icon="🥩" pct={proteinPct} color="#10b981" to="/nutrition"
+            value={`${Math.round(nutrition.protein)} / ${metrics.macros.proteinG}g`}
+            sub={avgWeekCalories > 0 ? `7-day avg: ${Math.round(avgWeekCalories)} kcal/day` : 'Log meals to build your average'}
+          />
         </div>
-
-        {/* Output */}
-        <div className="sm:col-span-1 lg:col-span-3 card card-shadow p-3 sm:p-5 rounded-2xl animate-fade-up opacity-0"
-          style={{ animationFillMode: 'forwards', animationDelay: '150ms' }}>
-          <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <h2 className="text-xs sm:text-sm font-black text-text-primary">Output</h2>
-            <button className="flex items-center gap-1 text-xs text-text-muted hover:text-text-secondary transition-colors">
-              Last week <ChevronDownIcon />
-            </button>
-          </div>
-
-          <div className="flex flex-col gap-3">
-            {/* Calorie loss */}
-            <div className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-xl" style={{ background: 'rgba(245,175,30,0.1)', border: '1px solid rgba(245,175,30,0.2)' }}>
-              <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full flex items-center justify-center text-sm sm:text-base flex-shrink-0"
-                style={{ background: 'linear-gradient(135deg,#f59e0b,#d97706)' }}>
-                🔥
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[10px] text-text-muted">Calorie loss</p>
-                <p className="text-sm font-black text-amber-400">−{(metrics.targetCalories * 0.12).toFixed(2)} m</p>
-              </div>
-              {/* mini sparkline */}
-              <svg width="36" height="20" viewBox="0 0 36 20">
-                <polyline points="0,15 8,10 16,13 24,6 36,3"
-                  fill="none" stroke="#f59e0b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </div>
-
-            {/* Weight loss */}
-            <div className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-xl" style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)' }}>
-              <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full flex items-center justify-center text-sm sm:text-base flex-shrink-0"
-                style={{ background: 'linear-gradient(135deg,#10b981,#059669)' }}>
-                ⚖️
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[10px] text-text-muted">Weight loss</p>
-                <p className="text-sm font-black text-green-400">
-                  {weights.length > 1 ? `−${(weights[1].weight - weights[0].weight).toFixed(3)} kg` : '—'}
-                </p>
-              </div>
-              <svg width="36" height="20" viewBox="0 0 36 20">
-                <polyline points="0,5 8,8 16,6 24,10 36,14"
-                  fill="none" stroke="#10b981" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </div>
-          </div>
+        <div className="animate-fade-up opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '150ms' }}>
+          <MetricRing
+            label="Hydration" icon="💧" pct={waterPct} color="#60a5fa" to="/nutrition"
+            value={`${(waterTotal / 1000).toFixed(1)} / ${(waterGoal / 1000).toFixed(1)}L`}
+            sub={outdoor && outdoor.hydrationBonusMl > 0
+              ? `incl. +${outdoor.hydrationBonusMl} ml heat adjustment`
+              : 'Personalized to your weight & activity'}
+          />
         </div>
-
-        {/* Calories gauge */}
-        <div className="sm:col-span-2 lg:col-span-3 card card-shadow p-3 sm:p-5 rounded-2xl animate-fade-up opacity-0"
-          style={{ animationFillMode: 'forwards', animationDelay: '200ms' }}>
-          <div className="flex items-center justify-between mb-2 sm:mb-3">
-            <h2 className="text-xs sm:text-sm font-black text-text-primary">Calories</h2>
-            <button className="flex items-center gap-1 text-xs text-text-muted hover:text-text-secondary transition-colors">
-              Today <ChevronDownIcon />
-            </button>
-          </div>
-
-          {/* Semi-circle gauge */}
-          <div className="flex flex-col items-center">
-            <div className="relative" style={{ width: 120, height: 65, overflow: 'hidden' }}>
-              <svg width="120" height="120" viewBox="0 0 120 120" style={{ position: 'absolute', top: 0 }}>
-                <defs>
-                  <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="#6c41d2"/>
-                    <stop offset="100%" stopColor="#ec4899"/>
-                  </linearGradient>
-                </defs>
-                {/* Track */}
-                <circle cx="60" cy="60" r="48" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="10"
-                  strokeDasharray={`${Math.PI * 48} ${2 * Math.PI * 48}`} strokeLinecap="round"
-                  style={{ transform: 'rotate(180deg)', transformOrigin: '60px 60px' }} />
-                {/* Fill */}
-                <circle cx="60" cy="60" r="48" fill="none" stroke="url(#gaugeGrad)" strokeWidth="10"
-                  strokeDasharray={`${(calPct / 100) * Math.PI * 48} ${2 * Math.PI * 48}`} strokeLinecap="round"
-                  style={{ transform: 'rotate(180deg)', transformOrigin: '60px 60px', filter: 'drop-shadow(0 0 6px rgba(108,65,210,0.5))' }} />
-                <text x="60" y="52" textAnchor="middle" fontSize="14" fontWeight="900" fill="white">{calPct}%</text>
-                <text x="60" y="64" textAnchor="middle" fontSize="7" fill="rgba(170,165,210,0.8)" fontWeight="600">Based on workout</text>
-              </svg>
-            </div>
-            <div className="flex justify-between w-full mt-2 px-2">
-              <span className="text-[10px] text-text-muted font-medium">0%</span>
-              <span className="text-lg font-black gradient-text">{calPct.toFixed(2)} %</span>
-              <span className="text-[10px] text-text-muted font-medium">100%</span>
-            </div>
-          </div>
+        <div className="animate-fade-up opacity-0" style={{ animationFillMode: 'forwards', animationDelay: '200ms' }}>
+          <MetricRing
+            label="Activity" icon="⚡" pct={activityPct} color="#f59e0b" to="/workout"
+            value={`${todayActiveMin} / 30 min`}
+            sub={weekCount > 0 ? `${weekCount} session${weekCount > 1 ? 's' : ''} this week` : 'WHO target: 30 min/day'}
+          />
         </div>
       </div>
 
-      {/* ── Row 2 — Recommend Activity + Activity chart + Popular Workouts ── */}
+      {/* ── Smart insights strip ── */}
+      {insights.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-3 mb-3 sm:mb-5">
+          {insights.map((ins, i) => {
+            const tone = TONE_STYLES[ins.tone]
+            return (
+              <div key={ins.id} className="p-3 sm:p-4 rounded-2xl animate-fade-up opacity-0"
+                style={{ background: tone.bg, border: `1px solid ${tone.border}`, animationFillMode: 'forwards', animationDelay: `${250 + i * 50}ms` }}>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-base">{ins.icon}</span>
+                  <p className="text-xs font-black text-text-primary leading-tight">{ins.title}</p>
+                </div>
+                <p className="text-[11px] text-text-muted leading-relaxed">{ins.detail}</p>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* ── Row: Weekly activity + Weight goal ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-5 mb-3 sm:mb-5">
 
-        {/* Recommend activity list */}
-        <div className="lg:col-span-5 card card-shadow p-3 sm:p-5 rounded-2xl animate-fade-up opacity-0"
-          style={{ animationFillMode: 'forwards', animationDelay: '250ms' }}>
-          <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <h2 className="text-xs sm:text-sm font-black text-text-primary">Recommend activity</h2>
-            <button className="flex items-center gap-1 text-xs text-text-muted hover:text-text-secondary transition-colors">
-              Daily <ChevronDownIcon />
-            </button>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            {recommendItems.map((item, i) => (
-              <Link
-                key={item.label}
-                to="/workout"
-                className="flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3 rounded-xl hover:bg-white/5 transition-all group animate-fade-up opacity-0"
-                style={{ animationFillMode: 'forwards', animationDelay: `${300 + i * 50}ms` }}
-              >
-                {/* Icon */}
-                <div className={`${item.color} h-8 w-8 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center text-base sm:text-lg flex-shrink-0`}>
-                  {item.icon}
-                </div>
-
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-text-primary truncate">{item.label}</p>
-                  <p className="text-[10px] text-text-muted mt-0.5">{item.sub}</p>
-                </div>
-
-                {/* Duration badge */}
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  <span className="text-[10px] font-bold px-2 py-1 rounded-lg"
-                    style={{ background: 'rgba(108,65,210,0.2)', color: 'rgb(175,135,255)', border: '1px solid rgba(108,65,210,0.3)' }}>
-                    ~{item.mins}min
-                  </span>
-                  <span className="text-text-muted group-hover:text-text-secondary transition-colors opacity-0 group-hover:opacity-100">
-                    <ArrowRightIcon />
-                  </span>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-
-        {/* Monthly activity chart */}
-        <div className="lg:col-span-4 card card-shadow p-3 sm:p-5 rounded-2xl animate-fade-up opacity-0"
-          style={{ animationFillMode: 'forwards', animationDelay: '300ms' }}>
-          <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <h2 className="text-xs sm:text-sm font-black text-text-primary">Activity</h2>
-            <button className="flex items-center gap-1 text-xs text-text-muted hover:text-text-secondary transition-colors">
-              Monthly <ChevronDownIcon />
-            </button>
-          </div>
-          {/* Y-axis labels */}
-          <div className="flex gap-0 h-36">
-            <div className="flex flex-col justify-between text-[9px] text-text-muted pb-5 pr-1.5" style={{ minWidth: 20 }}>
-              {['40%','30%','20%','10%','0'].map(l => <span key={l}>{l}</span>)}
-            </div>
-            <div className="flex-1">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={monthActivity} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="actGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.4"/>
-                      <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.02"/>
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="month" tick={{ fontSize: 9, fill: 'rgba(170,165,210,0.7)' }} tickLine={false} axisLine={false} interval={0} />
-                  <Tooltip content={<ChartTooltip unit=" min" />} />
-                  <Area type="monotone" dataKey="value" stroke="#8b5cf6" strokeWidth={2} fill="url(#actGrad)"
-                    dot={(props) => {
-                      const { cx, cy, payload } = props
-                      if (!payload.isCurrent) return <circle key={`dot-${props.index}`} cx={cx} cy={cy} r={3} fill="#8b5cf6" fillOpacity={0.5} stroke="none" />
-                      return (
-                        <g key={`dot-${props.index}`}>
-                          <circle cx={cx} cy={cy} r={5} fill="#6c41d2" stroke="white" strokeWidth={2} style={{ filter: 'drop-shadow(0 0 6px rgba(108,65,210,0.8))' }} />
-                        </g>
-                      )
-                    }}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </div>
-
-        {/* Popular workout cards */}
-        <div className="lg:col-span-3 card card-shadow p-3 sm:p-5 rounded-2xl animate-fade-up opacity-0"
-          style={{ animationFillMode: 'forwards', animationDelay: '350ms' }}>
-          <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <h2 className="text-xs sm:text-sm font-black text-text-primary">Popular workout</h2>
-            <button className="flex items-center gap-1 text-xs text-text-muted hover:text-text-secondary transition-colors">
-              Cardio <ChevronDownIcon />
-            </button>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            {[
-              { name: 'Push Day', sub: 'Chest expert', img: '💪', color: '#6c41d2', followers: 22, rating: 13 },
-              { name: 'MMA Circuit', sub: 'Full body', img: '🥊', color: '#d97706', followers: 23, rating: 14 },
-              { name: 'Cardio Blast', sub: 'Endurance', img: '🏃', color: '#059669', followers: 24, rating: 15 },
-            ].map((trainer, i) => (
-              <Link
-                key={trainer.name}
-                to="/workout"
-                className="flex items-center gap-2.5 p-2 sm:p-2.5 rounded-xl hover:bg-white/5 transition-all group animate-fade-up opacity-0"
-                style={{ animationFillMode: 'forwards', animationDelay: `${400 + i * 60}ms` }}
-              >
-                <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center text-lg sm:text-xl flex-shrink-0"
-                  style={{ background: `${trainer.color}22`, border: `1px solid ${trainer.color}44` }}>
-                  {trainer.img}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-text-primary truncate">{trainer.name}</p>
-                  <p className="text-[10px] text-text-muted">{trainer.sub}</p>
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <span className="text-[9px] text-text-muted">{trainer.followers}</span>
-                    <span className="text-[9px] text-text-muted">·</span>
-                    <span className="text-[9px] text-text-muted">{trainer.rating}</span>
-                    <span className="text-[9px] text-purple-400 font-semibold ml-auto group-hover:underline">View →</span>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* ── Row 3 — Fitness Goals + Weight Trend + Stats ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-5">
-
-        {/* Fitness goals */}
-        <div className="lg:col-span-5 card card-shadow p-3 sm:p-5 rounded-2xl animate-fade-up opacity-0"
-          style={{ animationFillMode: 'forwards', animationDelay: '400ms' }}>
-          <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <h2 className="text-xs sm:text-sm font-black text-text-primary">Fitness goal</h2>
-            <button className="flex items-center gap-1 text-xs text-text-muted hover:text-text-secondary transition-colors">
-              Today <ChevronDownIcon />
-            </button>
-          </div>
-          <div className="grid grid-cols-2 gap-2 sm:gap-3">
-            {[
-              { icon: '🧘', label: 'ABS & Stretch', mins: '12 minutes', sub: 'Core strength training', color: 'card-yellow', mintColor: '#f59e0b' },
-              { icon: '🏃', label: 'Lifting & Jogging', mins: '10 minutes', sub: 'Cardio endurance', color: 'card-purple', mintColor: '#8b5cf6' },
-              { icon: '💪', label: 'Upper Body', mins: '20 minutes', sub: 'Push & pull day', color: 'card-blue', mintColor: '#60a5fa' },
-              { icon: '🦵', label: 'Leg Press', mins: '15 minutes', sub: 'Lower body strength', color: 'card-green', mintColor: '#10b981' },
-            ].map(goal => (
-              <div key={goal.label}
-                className={`${goal.color} p-2.5 sm:p-3.5 rounded-xl hover:scale-[1.02] transition-transform cursor-pointer`}>
-                <div className="flex items-center justify-between mb-1.5 sm:mb-2">
-                  <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg bg-white/10 flex items-center justify-center text-sm sm:text-base">{goal.icon}</div>
-                  <span className="text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full"
-                    style={{ background: `${goal.mintColor}22`, color: goal.mintColor }}>
-                    {goal.mins}
-                  </span>
-                </div>
-                <p className="text-[11px] sm:text-xs font-bold text-text-primary leading-tight">{goal.label}</p>
-                <p className="text-[10px] text-text-muted mt-0.5 truncate">{goal.sub}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Weight trend chart */}
-        <div className="lg:col-span-4 card card-shadow p-3 sm:p-5 rounded-2xl animate-fade-up opacity-0"
+        {/* Weekly activity chart — real session minutes */}
+        <div className="lg:col-span-7 card card-shadow p-3 sm:p-5 rounded-2xl animate-fade-up opacity-0"
           style={{ animationFillMode: 'forwards', animationDelay: '450ms' }}>
           <div className="flex items-center justify-between mb-3 sm:mb-4">
             <div>
-              <h2 className="text-xs sm:text-sm font-black text-text-primary">Weight Trend</h2>
-              <p className="text-[10px] text-text-muted mt-0.5">Last entries</p>
+              <h2 className="text-xs sm:text-sm font-black text-text-primary">Training — last 7 days</h2>
+              <p className="text-[10px] text-text-muted mt-0.5">
+                {activityData.reduce((s, d) => s + d.minutes, 0)} active min this period
+                {todayBurnedKcal > 0 && ` · ${todayBurnedKcal} kcal burned today (est.)`}
+              </p>
+            </div>
+            <Link to="/progress" className="text-xs font-bold text-purple-400 hover:text-purple-300">Details →</Link>
+          </div>
+          <ResponsiveContainer width="100%" height={150}>
+            <BarChart data={activityData} margin={{ top: 2, right: 0, left: -24, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+              <XAxis dataKey="day" tick={{ fontSize: 10, fill: 'rgba(170,165,210,0.7)' }} tickLine={false} axisLine={false} />
+              <YAxis tick={{ fontSize: 9, fill: 'rgba(170,165,210,0.6)' }} tickLine={false} axisLine={false} width={34} unit="m" />
+              <Tooltip content={<ChartTooltip unit=" min" />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+              <RechartsBar dataKey="minutes" radius={[6, 6, 2, 2]} maxBarSize={34}>
+                {activityData.map((d, i) => (
+                  <Cell key={i} fill={d.minutes > 0 ? (d.isToday ? '#8c41d4' : 'rgba(140,65,212,0.55)') : 'rgba(255,255,255,0.05)'} />
+                ))}
+              </RechartsBar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Weight + goal progress */}
+        <div className="lg:col-span-5 card card-shadow p-3 sm:p-5 rounded-2xl animate-fade-up opacity-0"
+          style={{ animationFillMode: 'forwards', animationDelay: '500ms' }}>
+          <div className="flex items-center justify-between mb-2 sm:mb-3">
+            <div>
+              <h2 className="text-xs sm:text-sm font-black text-text-primary">Weight Goal</h2>
+              <p className="text-[10px] text-text-muted mt-0.5">
+                {pace && pace.spanDays >= 7
+                  ? `${pace.weeklyRateKg >= 0 ? '+' : ''}${kgToDisplay(pace.weeklyRateKg, unit).toFixed(2)} ${unit}/wk over ${pace.spanDays} days`
+                  : 'Log weight to unlock pace insights'}
+              </p>
             </div>
             <div className="text-right">
               <p className="text-lg sm:text-xl font-black text-text-primary tracking-tight">
-                {weights[0]?.weight.toFixed(1) ?? '—'}
-                <span className="text-xs font-normal text-text-muted ml-1">kg</span>
+                {weights[0] ? kgToDisplay(weights[0].weight, unit).toFixed(1) : '—'}
+                <span className="text-xs font-normal text-text-muted ml-1">{unit}</span>
               </p>
               {weights.length > 1 && (
                 <p className={`text-[10px] flex items-center gap-0.5 justify-end mt-0.5 ${
                   weights[0].weight < weights[1].weight ? 'text-green-400' : 'text-red-400'
                 }`}>
                   {weights[0].weight < weights[1].weight ? <TrendDownIcon /> : <TrendUpIcon />}
-                  {Math.abs(weights[0].weight - weights[1].weight).toFixed(1)} kg
+                  {Math.abs(kgToDisplay(Math.abs(weights[0].weight - weights[1].weight), unit)).toFixed(1)} {unit}
                 </p>
               )}
             </div>
           </div>
-          {weightTrend.length > 0 ? (
-            <ResponsiveContainer width="100%" height={130}>
-              <LineChart data={weightTrend} margin={{ top: 5, right: 0, left: -28, bottom: 0 }}>
+
+          {weightTrend.length > 1 ? (
+            <ResponsiveContainer width="100%" height={92}>
+              <LineChart data={weightTrend} margin={{ top: 4, right: 0, left: -32, bottom: 0 }}>
                 <defs>
                   <linearGradient id="wGrad" x1="0" y1="0" x2="1" y2="0">
                     <stop offset="0%" stopColor="#6c41d2"/>
                     <stop offset="100%" stopColor="#ec4899"/>
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-                <XAxis dataKey="date" tick={{ fontSize: 9, fill: 'rgba(170,165,210,0.6)' }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 9, fill: 'rgba(170,165,210,0.6)' }} tickLine={false} axisLine={false} width={32} />
-                <Tooltip content={<ChartTooltip unit=" kg" />} />
-                <Line type="monotone" dataKey="kg" stroke="url(#wGrad)" strokeWidth={2.5}
-                  dot={{ r: 4, fill: '#6c41d2', strokeWidth: 2, stroke: 'rgb(22,21,38)' }}
-                  activeDot={{ r: 6, fill: '#8b5cf6', stroke: 'rgb(22,21,38)', strokeWidth: 2 }}
-                />
+                <XAxis dataKey="date" hide />
+                <YAxis hide domain={['dataMin - 1', 'dataMax + 1']} />
+                <Tooltip content={<ChartTooltip unit={` ${unit}`} />} />
+                <Line type="monotone" dataKey={weightKey} stroke="url(#wGrad)" strokeWidth={2.5}
+                  dot={false} activeDot={{ r: 5, fill: '#8b5cf6', stroke: 'rgb(22,21,38)', strokeWidth: 2 }} />
               </LineChart>
             </ResponsiveContainer>
           ) : (
-            <div className="flex flex-col items-center justify-center h-32 gap-3">
-              <div className="h-12 w-12 rounded-2xl card-purple flex items-center justify-center text-xl">⚖️</div>
-              <p className="text-xs text-text-muted">No weight data yet</p>
-              <Link to="/weight" className="text-xs text-purple-400 hover:underline font-semibold">Log weight →</Link>
+            <div className="flex flex-col items-center justify-center h-24 gap-2">
+              <div className="h-10 w-10 rounded-2xl card-purple flex items-center justify-center text-lg">⚖️</div>
+              <Link to="/weight" className="text-xs text-purple-400 hover:underline font-semibold">Log your weight →</Link>
+            </div>
+          )}
+
+          {/* Real progress toward target weight (start → current → goal) */}
+          <div className="mt-2">
+            <div className="flex justify-between text-[10px] text-text-muted mb-1">
+              <span>{profile.startingWeight ? `${kgToDisplay(profile.startingWeight, unit).toFixed(0)} ${unit} start` : 'start'}</span>
+              <span className="font-bold text-text-primary">{metrics.progressPercent}% there</span>
+              <span>{kgToDisplay(profile.targetWeight, unit).toFixed(0)} {unit} goal</span>
+            </div>
+            <div className="progress-bar">
+              <div className="progress-bar-fill" style={{ width: `${metrics.progressPercent}%`, background: 'linear-gradient(90deg,#6c41d2,#ec4899)' }} />
+            </div>
+            {pace?.etaDate && (
+              <p className="text-[10px] text-text-muted mt-1.5">
+                {pace.movingToGoal
+                  ? `🎯 On track — projected to reach your goal around ${formatFullDate(pace.etaDate)}`
+                  : `⚠️ Currently trending away from your goal`}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Outdoor training conditions — live Open-Meteo data ── */}
+      {outdoor && (
+        <div className="card card-shadow p-3 sm:p-4 rounded-2xl mb-3 sm:mb-5 animate-fade-up opacity-0"
+          style={{ animationFillMode: 'forwards', animationDelay: '520ms' }}>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <div className="flex items-center gap-2.5">
+              <span className="text-2xl">{outdoor.isDay ? (outdoor.score >= 60 ? '☀️' : '🌤️') : '🌙'}</span>
+              <div>
+                <p className="text-sm font-black text-text-primary leading-tight">
+                  {outdoor.temperatureC}°C <span className="text-[10px] font-semibold text-text-muted">feels {outdoor.feelsLikeC}°C</span>
+                </p>
+                <p className="text-[10px] text-text-muted">Outdoor training conditions</p>
+              </div>
+            </div>
+            <span className="px-2.5 py-1 rounded-full text-[10px] font-black"
+              style={{
+                background: outdoor.score >= 60 ? 'rgba(16,185,129,0.12)' : outdoor.score >= 40 ? 'rgba(245,158,11,0.12)' : 'rgba(239,68,68,0.12)',
+                color: outdoor.score >= 60 ? '#10b981' : outdoor.score >= 40 ? '#f59e0b' : '#ef4444',
+                border: `1px solid ${outdoor.score >= 60 ? 'rgba(16,185,129,0.3)' : outdoor.score >= 40 ? 'rgba(245,158,11,0.3)' : 'rgba(239,68,68,0.3)'}`,
+              }}>
+              {outdoor.label} · {outdoor.score}/100
+            </span>
+            <div className="flex items-center gap-x-3.5 gap-y-1 flex-wrap text-[10px] text-text-muted font-semibold ml-auto sm:ml-0">
+              <span title="Air quality (US EPA index)">🌫️ AQI {outdoor.aqi}</span>
+              <span title="UV index (WHO scale)">🕶️ UV {outdoor.uvIndex}</span>
+              <span title="Relative humidity">💧 {outdoor.humidityPct}%</span>
+              <span title="Chance of precipitation">🌧️ {outdoor.precipitationProb}%</span>
+            </div>
+          </div>
+          <p className="text-[11px] text-text-secondary mt-2 leading-relaxed">
+            {outdoor.advice}
+            {outdoor.hydrationBonusMl > 0 && (
+              <span className="text-blue-300 font-semibold"> · Water goal raised +{outdoor.hydrationBonusMl} ml for the heat.</span>
+            )}
+          </p>
+        </div>
+      )}
+
+      {/* ── Row: Recommendations + Recent sessions + Records/Achievements ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-5">
+
+        {/* Recommended workouts — real templates, goal-aware, rotation-aware */}
+        <div className="lg:col-span-5 card card-shadow p-3 sm:p-5 rounded-2xl animate-fade-up opacity-0"
+          style={{ animationFillMode: 'forwards', animationDelay: '550ms' }}>
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <div>
+              <h2 className="text-xs sm:text-sm font-black text-text-primary">Recommended for you</h2>
+              <p className="text-[10px] text-text-muted mt-0.5">Based on your goal & muscle-group rotation</p>
+            </div>
+            <Link to="/workout" className="text-xs font-bold text-purple-400 hover:text-purple-300">All →</Link>
+          </div>
+          <div className="flex flex-col gap-2">
+            {recommended.map((item, i) => {
+              const colors = ['card-purple', 'card-green', 'card-yellow']
+              const icons = ['💪', '🔥', '⚡']
+              return (
+                <Link key={item.id} to={`/workout/session/${item.id}`}
+                  className={`flex items-center gap-3 p-2.5 sm:p-3 rounded-xl ${colors[i % 3]} hover:scale-[1.01] transition-all group animate-fade-up opacity-0`}
+                  style={{ animationFillMode: 'forwards', animationDelay: `${600 + i * 60}ms` }}>
+                  <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl bg-white/10 flex items-center justify-center text-lg flex-shrink-0">
+                    {icons[i % icons.length]}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-text-primary truncate">{item.name}</p>
+                    <p className="text-[10px] text-text-muted mt-0.5">{item.estimatedMinutes} min · tap to start</p>
+                  </div>
+                  <span className="text-text-muted group-hover:text-text-secondary transition-colors opacity-0 group-hover:opacity-100">
+                    <ArrowRightIcon />
+                  </span>
+                </Link>
+              )
+            })}
+          </div>
+          <Link to="/workout" className="btn-purple btn-sm w-full mt-3 sm:hidden">Start Workout</Link>
+        </div>
+
+        {/* Recent sessions — real history */}
+        <div className="lg:col-span-4 card card-shadow p-3 sm:p-5 rounded-2xl animate-fade-up opacity-0"
+          style={{ animationFillMode: 'forwards', animationDelay: '600ms' }}>
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <h2 className="text-xs sm:text-sm font-black text-text-primary">Recent sessions</h2>
+            <Link to="/workout" className="text-xs font-bold text-purple-400 hover:text-purple-300">History →</Link>
+          </div>
+          {recentSessions.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-36 gap-3 opacity-60">
+              <div className="h-12 w-12 rounded-2xl card-purple flex items-center justify-center text-xl">🏋️</div>
+              <p className="text-xs text-text-muted text-center">No workouts yet.<br />Your first session is one tap away.</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {recentSessions.map(w => (
+                <div key={w.id} className="flex items-center gap-2.5 p-2 sm:p-2.5 rounded-xl"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                  <div className="h-8 w-8 rounded-lg gradient-brand flex items-center justify-center text-white text-sm flex-shrink-0">🏋️</div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-text-primary truncate">{w.name}</p>
+                    <p className="text-[10px] text-text-muted">{formatDate(w.date)} · {sessionMinutes(w)} min</p>
+                  </div>
+                  {w.totalVolumeKg > 0 && (
+                    <span className="text-[10px] font-bold text-text-muted flex-shrink-0">
+                      {Math.round(kgToDisplay(w.totalVolumeKg, unit)).toLocaleString()} {unit} vol
+                    </span>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </div>
 
-        {/* Quick stats column */}
+        {/* PRs + achievements */}
         <div className="lg:col-span-3 flex flex-col gap-2 sm:gap-3 animate-fade-up opacity-0"
-          style={{ animationFillMode: 'forwards', animationDelay: '500ms' }}>
-          {/* Water */}
+          style={{ animationFillMode: 'forwards', animationDelay: '650ms' }}>
+
+          <div className="card card-shadow p-3 sm:p-4 rounded-2xl">
+            <p className="text-xs font-bold text-text-primary mb-2">🏆 Latest records</p>
+            {topPrs.length === 0 ? (
+              <p className="text-[11px] text-text-muted leading-snug">Complete weighted sets to start building personal records.</p>
+            ) : (
+              <div className="flex flex-col gap-1.5">
+                {topPrs.map(pr => (
+                  <div key={pr.exerciseId} className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg card-green">
+                    <span className="text-[11px] font-bold text-text-primary truncate">{pr.exerciseName}</span>
+                    <span className="text-[10px] font-black text-green-400 flex-shrink-0">
+                      {kgToDisplay(pr.weightKg, unit)}{unit} × {pr.reps}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="card card-shadow p-3 sm:p-4 rounded-2xl flex-1">
-            <div className="flex items-center justify-between mb-1.5 sm:mb-2">
-              <p className="text-xs font-bold text-text-primary">Hydration</p>
-              <span className="text-[10px] text-blue-400 font-bold">{waterPct}%</span>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-bold text-text-primary">🏅 Achievements</p>
+              <Link to="/progress" className="text-[10px] font-bold text-purple-400 hover:text-purple-300">All →</Link>
             </div>
-            <p className="text-xl sm:text-2xl font-black text-text-primary tracking-tight mb-2">
-              {(waterTotal/1000).toFixed(1)}<span className="text-xs sm:text-sm font-normal text-text-muted ml-1">L</span>
+            <p className="text-2xl font-black text-text-primary tracking-tight">
+              {earnedBadges.length}
+              <span className="text-xs font-normal text-text-muted ml-1.5">badge{earnedBadges.length === 1 ? '' : 's'} earned</span>
             </p>
-            <div className="flex items-end gap-1 h-8">
-              {Array.from({ length: 10 }).map((_, i) => (
-                <div key={i} className="flex-1 rounded-t-sm transition-all duration-500"
-                  style={{
-                    height: `${30 + (i % 4) * 18}%`,
-                    background: i < Math.round(waterPct / 10)
-                      ? 'linear-gradient(180deg,#60a5fa,#2563eb)'
-                      : 'rgba(255,255,255,0.06)',
-                  }}
-                />
-              ))}
-            </div>
-            <div className="flex justify-between mt-1.5">
-              <span className="text-[10px] text-text-muted">0L</span>
-              <span className="text-[10px] text-text-muted">{waterGoal/1000}L goal</span>
-            </div>
+            {earnedBadges.length > 0 && (
+              <div className="flex gap-1.5 mt-2 flex-wrap">
+                {earnedBadges.slice(0, 5).map(b => (
+                  <span key={b.id} title={b.name} className="h-7 w-7 rounded-lg card-purple flex items-center justify-center text-sm">
+                    {b.icon}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Streak */}
-          <div className="card-purple p-3 sm:p-4 rounded-2xl flex items-center gap-2 sm:gap-3">
-            <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl gradient-brand flex items-center justify-center text-lg sm:text-xl flex-shrink-0"
-              style={{ boxShadow: '0 4px 12px rgba(108,65,210,0.45)' }}>
-              🔥
-            </div>
-            <div>
-              <p className="text-xs text-text-muted">Current Streak</p>
-              <p className="text-lg sm:text-xl font-black text-text-primary">{progressSummary?.streak.currentStreak ?? 0}
-                <span className="text-xs font-normal text-text-muted ml-1">days</span>
-              </p>
-            </div>
-          </div>
-
-          {/* Macros */}
-          <div className="card card-shadow p-3 sm:p-4 rounded-2xl flex-1">
-            <p className="text-xs font-bold text-text-primary mb-3">Today's Macros</p>
-            <div className="flex flex-col gap-2">
-              {[
-                { label: 'Protein', val: `${todayNutrition.protein.toFixed(0)}g`, pct: proteinPct, color: '#8b5cf6' },
-                { label: 'Carbs',   val: `${todayNutrition.carbs.toFixed(0)}g`,   pct: carbsPct,   color: '#ec4899' },
-                { label: 'Fat',     val: `${todayNutrition.fat.toFixed(0)}g`,     pct: 100-proteinPct-carbsPct, color: '#f59e0b' },
-              ].map(m => (
-                <div key={m.label}>
+          {/* Macros balance (today) */}
+          <div className="card card-shadow p-3 sm:p-4 rounded-2xl">
+            <p className="text-xs font-bold text-text-primary mb-2.5">Today's macros vs target</p>
+            {[
+              { label: 'Protein', logged: nutrition.protein, target: metrics.macros.proteinG, color: '#8b5cf6' },
+              { label: 'Carbs',   logged: nutrition.carbs,   target: metrics.macros.carbsG,   color: '#ec4899' },
+              { label: 'Fat',     logged: nutrition.fat,     target: metrics.macros.fatG,     color: '#f59e0b' },
+            ].map(m => {
+              const pct = m.target > 0 ? Math.min(100, (m.logged / m.target) * 100) : 0
+              return (
+                <div key={m.label} className="mb-2 last:mb-0">
                   <div className="flex justify-between text-[10px] mb-1">
                     <span className="text-text-muted">{m.label}</span>
-                    <span className="font-bold text-text-primary">{m.val}</span>
+                    <span className="font-bold text-text-primary">{Math.round(m.logged)} / {m.target}g</span>
                   </div>
                   <div className="progress-bar" style={{ height: '4px' }}>
-                    <div className="progress-bar-fill" style={{ width: `${Math.min(100, m.pct)}%`, background: m.color }} />
+                    <div className="progress-bar-fill" style={{ width: `${pct}%`, background: m.color }} />
                   </div>
                 </div>
-              ))}
-            </div>
+              )
+            })}
           </div>
         </div>
       </div>

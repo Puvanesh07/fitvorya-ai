@@ -6,6 +6,7 @@ import { fetchWorkoutHistory, fetchHeatmap } from '../services/workoutService'
 import type { WorkoutSession } from '../types/workout'
 import { BUILT_IN_TEMPLATES } from '../data/templates'
 import { formatFullDate } from '../utils/format'
+import { useUnit, kgToDisplay } from '../hooks/useUnit'
 
 const TEMPLATE_META: Record<string, {
   icon: string; cardColor: string; accent: string
@@ -23,6 +24,7 @@ const TEMPLATE_META: Record<string, {
 
 export default function Workout() {
   const { profile } = useAuth()
+  const { unit } = useUnit()
   const navigate    = useNavigate()
   const [history, setHistory]   = useState<WorkoutSession[]>([])
   const [heatmap, setHeatmap]   = useState<{ date: string; count: number }[]>([])
@@ -182,7 +184,7 @@ export default function Workout() {
                       </span>
                     )}
                     {w.totalVolumeKg && w.totalVolumeKg > 0 && (
-                      <span className="text-[11px] text-text-muted font-semibold">{Math.round(w.totalVolumeKg)}kg</span>
+                      <span className="text-[11px] text-text-muted font-semibold">{Math.round(kgToDisplay(w.totalVolumeKg, unit))}{unit}</span>
                     )}
                   </div>
                 </div>

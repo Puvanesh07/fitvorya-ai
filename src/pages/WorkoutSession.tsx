@@ -7,6 +7,7 @@ import { BUILT_IN_TEMPLATES } from '../data/templates'
 import { finishWorkout, fetchPersonalRecords } from '../services/workoutService'
 import type { SessionExercise, SetEntry, PersonalRecord } from '../types/workout'
 import { useRestTimer } from '../hooks/useRestTimer'
+import { useUnit, kgToDisplay, displayToKg } from '../hooks/useUnit'
 import { localTodayISO } from '../utils/format'
 
 function formatTime(s: number) {
@@ -21,6 +22,7 @@ interface WorkoutDraft { exercises: SessionExercise[]; startTime: number; active
 export default function WorkoutSession() {
   const { templateId } = useParams<{ templateId: string }>()
   const { profile } = useAuth()
+  const { unit } = useUnit()
   const navigate = useNavigate()
   const uid = profile?.uid ?? ''
   const template = BUILT_IN_TEMPLATES.find(t => t.id === templateId)
@@ -36,6 +38,7 @@ export default function WorkoutSession() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [activeIdx, setActiveIdx] = useState(savedDraft?.activeExerciseIndex ?? 0)
   const [saving, setSaving] = useState(false)
+  const [finishError, setFinishError] = useState('')
   const [showCompletion, setShowCompletion] = useState(false)
   const [newPRs, setNewPRs] = useState<PersonalRecord[]>([])
 
@@ -82,7 +85,7 @@ export default function WorkoutSession() {
 
   async function handleFinish() {
     if (!uid || !template) return
-    setSaving(true)
+    setSaving(true); setFinishError('')
     try {
       await finishWorkout(uid, {
         templateId: template.id, name: template.name, date: localTodayISO(),
@@ -99,7 +102,10 @@ export default function WorkoutSession() {
       })
       if (todayPRs.length > 0) setNewPRs(todayPRs)
       setShowCompletion(true)
-    } catch (e) { console.error(e) }
+    } catch (e) {
+      console.error(e)
+      setFinishError('Could not save your workout. Check your connection and tap Finish again.')
+    }
     finally { setSaving(false) }
   }
 
@@ -153,6 +159,11 @@ export default function WorkoutSession() {
             {saving ? <LoadingSpinner size="sm" /> : allComplete ? '🎉 Finish' : 'Finish'}
           </button>
         </div>
+        {finishError && (
+          <div className="max-w-3xl mx-auto px-4 pb-2">
+            <p className="text-[11px] text-red-400 font-semibold">⚠ {finishError}</p>
+          </div>
+        )}
       </div>
 
       {/* ── Rest timer banner ── */}
@@ -260,7 +271,7 @@ export default function WorkoutSession() {
                 <div className="grid grid-cols-12 gap-2 px-2">
                   <div className="col-span-2 text-[10px] font-bold text-text-muted text-center">SET</div>
                   <div className="col-span-4 text-[10px] font-bold text-text-muted text-center">REPS</div>
-                  <div className="col-span-4 text-[10px] font-bold text-text-muted text-center">KG</div>
+                  <div className="col-span-4 text-[10px] font-bold text-text-muted text-center">{unit.toUpperCase()}</div>
                   <div className="col-span-2" />
                 </div>
 
@@ -299,12 +310,12 @@ export default function WorkoutSession() {
                       />
                     </div>
 
-                    {/* Weight input */}
+                    {/* Weight input — shown in the user's unit, stored in kg */}
                     <div className="col-span-4">
                       <input
                         type="number"
-                        value={set.weightKg}
-                        onChange={e => updateSet(activeIdx, sIdx, { weightKg: Number(e.target.value) })}
+                        value={kgToDisplay(set.weightKg, unit)}
+                        onChange={e => updateSet(activeIdx, sIdx, { weightKg: displayToKg(Number(e.target.value), unit) })}
                         disabled={set.completed}
                         className={`input py-2 text-sm text-center font-bold w-full ${set.completed ? 'opacity-60' : ''}`}
                         min={0} step="0.5"
@@ -395,7 +406,7 @@ export default function WorkoutSession() {
                     <p className="text-xs font-bold text-text-secondary mb-2">🏆 New Personal Records!</p>
                     {newPRs.map((pr, i) => (
                       <p key={i} className="text-sm font-bold text-text-primary">
-                        {pr.exerciseName}: {pr.weightKg}kg × {pr.reps}
+                        {pr.exerciseName}: {kgToDisplay(pr.weightKg, unit)}{unit} × {pr.reps}
                       </p>
                     ))}
                   </div>
@@ -409,7 +420,7 @@ export default function WorkoutSession() {
                   <div className="card-green p-3 rounded-2xl">
                     <p className="text-[10px] text-text-secondary">Volume</p>
                     <p className="text-xl font-black text-text-primary">
-                      {Math.round(exercises.reduce((s,ex) => s + ex.sets.filter(x=>x.completed).reduce((s2,set)=>s2+set.weightKg*set.reps,0),0))}kg
+                      {Math.round(kgToDisplay(exercises.reduce((s,ex) => s + ex.sets.filter(x=>x.completed).reduce((s2,set)=>s2+set.weightKg*set.reps,0),0), unit))}{unit}
                     </p>
                   </div>
                   <div className="card-orange p-3 rounded-2xl">
